@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  --bg-from: #1f1f1f;
+  --bg-to: #0e0d0d;
+  --gold: #e7a020;
+  --gold-border: #e8a020;
+  --surface: #2e2e2e;
+  --surface-alt: #212121;
+  --surface-dark: #0f0f0f;
+  --text-muted: rgba(255, 255, 255, 0.6);
+  --progress: #54d73b;
+}
+
+@theme inline {
+  --color-gold: var(--gold);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-surface-dark: var(--surface-dark);
+  --font-sans: var(--font-afacad);
+  --font-serif: var(--font-playfair);
+}
+
+body {
+  background: linear-gradient(166deg, var(--bg-from) 9%, var(--bg-to) 91.5%);
+  color: #fff;
+  font-family: var(--font-afacad), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+.bg-ramayan {
+  background: linear-gradient(166deg, var(--bg-from) 9%, var(--bg-to) 91.5%);
+}
