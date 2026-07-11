@@ -1,19 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import {  useState } from "react";
 import { Logo } from "@/components/Logo";
 import { Background } from "@/components/Background";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { login } from "@/lib/auth";
+import { getAuthErrorMessage, useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e:any) {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -23,11 +24,11 @@ export default function LoginPage() {
     const password = String(form.get("password"));
 
     try {
-      await login(email, password);
+      await login({ email, password });
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(getAuthErrorMessage(err));
       setLoading(false);
     }
   }
@@ -49,8 +50,7 @@ export default function LoginPage() {
             label="Email"
             name="email"
             type="email"
-            placeholder="admin@ramayana.com"
-            defaultValue="admin@ramayana.com"
+            defaultValue="admin@ramayana.app"
             required
           />
 
@@ -58,8 +58,7 @@ export default function LoginPage() {
             label="Password"
             name="password"
             type="password"
-            placeholder="••••••••••••"
-            defaultValue="password123"
+            defaultValue="Admin@123"
             required
           />
 

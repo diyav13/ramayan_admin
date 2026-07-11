@@ -1,13 +1,22 @@
+"use client";
+
+import { AdminGuard } from "@/components/AdminGuard";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Background } from "@/components/Background";
 import { SidebarNav } from "@/components/SidebarNav";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, isLoading } = useAuth();
+
+  const displayName = user?.name || user?.email || "Admin";
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
     <Background className="flex">
       <aside className="hidden w-56 shrink-0 flex-col border-r border-white/5 bg-black/20 p-6 md:flex">
@@ -24,14 +33,16 @@ export default function DashboardLayout({
           <h1 className="font-serif text-lg">Admin Panel</h1>
           <div className="flex items-center gap-3">
             <span className="hidden text-sm text-[var(--text-muted)] sm:block">
-              admin@ramayana.com
+              {isLoading ? "…" : user?.email ?? ""}
             </span>
             <div className="flex size-9 items-center justify-center rounded-full bg-[var(--surface)] text-sm font-bold text-[var(--gold)]">
-              A
+              {initial}
             </div>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6">
+          <AdminGuard>{children}</AdminGuard>
+        </main>
       </div>
     </Background>
   );

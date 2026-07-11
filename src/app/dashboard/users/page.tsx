@@ -1,198 +1,188 @@
 "use client";
 
-import { FormEvent } from "react";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { Checkbox } from "@/components/ui/Checkbox";
 import { PageHeader } from "@/components/PageHeader";
 import { RowActions } from "@/components/RowActions";
 import { DataTable } from "@/components/DataTable";
 import { EditView } from "@/components/EditView";
-import { FormActions } from "@/components/FormActions";
-import { useCrud } from "@/hooks/useCrud";
-import { generateId, pluralize, readText, today } from "@/lib/utils";
-import { ACCOUNT_TYPES, initialUsers, type User } from "@/lib/users";
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { ListState } from "@/components/ListState";
+import { Pagination } from "@/components/Pagination";
+import { UserPlanBadge } from "@/components/StatusBadges";
+import { UserFiltersBar } from "@/components/users/UserFiltersBar";
+import { UserForm } from "@/components/users/UserForm";
+import { UserProgressDetails } from "@/components/users/UserProgressDetails";
+import { useUsers } from "@/hooks/useUsers";
+import { formatDate, pluralize } from "@/lib/utils";
+import type { User } from "@/types/user";
 
 const columns = [
   { label: "User" },
-  { label: "Phone" },
-  { label: "Account" },
-  { label: "Premium" },
+  { label: "Plan" },
   { label: "Created" },
   { label: "Actions", align: "right" as const },
 ];
 
+function displayName(user: User): string {
+  return user.name?.trim() || user.email || user.phone || "Unnamed user";
+}
+
 export default function UsersPage() {
-  const crud = useCrud<User>(initialUsers);
+  const {
+    items,
+    pagination,
+    totalCount,
+    pageRange,
+    searchInput,
+    setSearchInput,
+    clearSearch,
+    hasActiveFilters,
+    page,
+    setPage,
+    loading,
+    saving,
+    error,
+    editingItem,
+    isEditing,
+    confirmDeleteId,
+    startEdit,
+    closeEditor,
+    updateUser,
+    deleteUser,
+    askDelete,
+    cancelDelete,
+  } = useUsers();
 
-  function handleSave(e: FormEvent<HTMLFormElement>, existing: User | null) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
+  const paginationSummary = pageRange
+    ? `Showing ${pageRange.from}–${pageRange.to} of ${totalCount}`
+    : undefined;
 
-    const data = {
-      name: readText(form, "name"),
-      email: readText(form, "email"),
-      phone: readText(form, "phone"),
-      accountType: form.get("accountType") as User["accountType"],
-      // Premium is read-only in the admin UI, so preserve the current value.
-      isPremium: existing?.isPremium ?? false,
-      avatarUrl: readText(form, "avatarUrl"),
-    };
-
-    if (existing) {
-      crud.updateItem(existing.id, data);
-    } else {
-      crud.addItem({ ...data, id: generateId("u"), createdAt: today() });
-    }
-    crud.closeEditor();
-  }
-
-  if (crud.isEditing) {
-    const user = crud.editingItem;
+  if (isEditing && editingItem) {
+    const user = editingItem;
     return (
       <EditView
-        title={crud.creating ? "Add User" : "Edit User"}
-        subtitle={
-          crud.creating
-            ? "Create a new user account"
-            : `Editing ${user?.name ?? "user"}`
-        }
+        title="Edit User"
+        subtitle={`Editing ${displayName(user)}`}
+        badge={<UserPlanBadge premium={user.isPremium} />}
       >
+        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
         <UserForm
           user={user}
-          onSave={(e) => handleSave(e, user)}
-          onCancel={crud.closeEditor}
+          saving={saving}
+          onSave={(payload) => updateUser(user.id, payload)}
+          onCancel={closeEditor}
         />
       </EditView>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="User Management"
-        subtitle={`${pluralize(crud.items.length, "user")} total`}
-        actionLabel="Add User"
-        onAction={crud.startCreate}
+        subtitle={
+          loading
+            ? "Loading users…"
+            : `${pluralize(totalCount, "user")} total`
+        }
       />
 
-      <DataTable columns={columns}>
-        {crud.items.map((user) => (
-          <tr
-            key={user.id}
-            className="border-b border-white/5 last:border-0 hover:bg-white/5"
-          >
-            <td className="px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Avatar user={user} />
-                <div>
-                  <p className="font-medium text-white">{user.name}</p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-            </td>
-            <td className="px-4 py-3 text-[var(--text-muted)]">{user.phone}</td>
-            <td className="px-4 py-3 text-[var(--text-muted)]">
-              {user.accountType}
-            </td>
-            <td className="px-4 py-3">
-              {user.isPremium ? (
-                <span className="text-[var(--gold)]">Premium</span>
-              ) : (
-                <span className="text-[var(--text-muted)]">Free</span>
-              )}
-            </td>
-            <td className="px-4 py-3 text-[var(--text-muted)]">
-              {user.createdAt}
-            </td>
-            <td className="px-4 py-3">
-              <RowActions
-                confirming={crud.confirmDeleteId === user.id}
-                onEdit={() => crud.startEdit(user.id)}
-                onAskDelete={() => crud.askDelete(user.id)}
-                onCancelDelete={crud.cancelDelete}
-                onConfirmDelete={() => {
-                  crud.removeItem(user.id);
-                  crud.cancelDelete();
-                }}
-              />
-            </td>
-          </tr>
-        ))}
-      </DataTable>
+      <UserFiltersBar
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        onSearchClear={clearSearch}
+      />
+
+      {error && <ErrorBanner message={error} />}
+
+      {loading ? (
+        <ListState message="Loading users…" />
+      ) : items.length === 0 ? (
+        <ListState
+          message="No users found"
+          hint={
+            hasActiveFilters ? "Try adjusting your search." : undefined
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-white/5 bg-[var(--surface-alt)]">
+          <DataTable columns={columns} minWidth={880} embedded>
+            {items.map((user) => (
+              <tr
+                key={user.id}
+                className="border-b border-white/5 last:border-0 transition hover:bg-white/[0.03]"
+              >
+                <td className="px-4 py-3.5 align-top">
+                  <div className="flex items-start gap-3">
+                    <Avatar user={user} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-white">
+                        {displayName(user)}
+                      </p>
+                      <p className="truncate text-xs text-[var(--text-muted)]">
+                        {user.email ?? "—"}
+                      </p>
+                      <UserProgressDetails user={user} />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3.5 align-top">
+                  <UserPlanBadge premium={user.isPremium} />
+                </td>
+                <td className="px-4 py-3.5 align-top text-[var(--text-muted)]">
+                  {formatDate(user.createdAt)}
+                </td>
+                <td className="px-4 py-3.5 align-top">
+                  <RowActions
+                    confirming={confirmDeleteId === user.id}
+                    onEdit={() => void startEdit(user.id)}
+                    onAskDelete={() => askDelete(user.id)}
+                    onCancelDelete={cancelDelete}
+                    onConfirmDelete={() => void deleteUser(user.id)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+
+          {pagination && (
+            <Pagination
+              pagination={pagination}
+              page={page}
+              onPageChange={setPage}
+              loading={loading}
+              summary={paginationSummary}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function UserForm({
-  user,
-  onSave,
-  onCancel,
-}: {
-  user: User | null;
-  onSave: (e: FormEvent<HTMLFormElement>) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <form onSubmit={onSave} className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input label="Name" name="name" defaultValue={user?.name} required />
-        <Input
-          label="Email"
-          name="email"
-          type="email"
-          defaultValue={user?.email}
-          required
-        />
-        <Input label="Phone" name="phone" defaultValue={user?.phone} />
-        <Input
-          label="Avatar URL"
-          name="avatarUrl"
-          placeholder="https://…"
-          defaultValue={user?.avatarUrl}
-        />
-        <Select
-          label="Account Type"
-          name="accountType"
-          options={ACCOUNT_TYPES}
-          defaultValue={user?.accountType ?? "EMAIL"}
-        />
-      </div>
-      <Checkbox
-        label="Premium account (read-only)"
-        checked={user?.isPremium ?? false}
-        readOnly
-        disabled
-      />
-      <FormActions
-        submitLabel={user ? "Save Changes" : "Create User"}
-        onCancel={onCancel}
-      />
-    </form>
-  );
-}
-
 function Avatar({ user }: { user: User }) {
+  const name = displayName(user);
+
   if (user.avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
         src={user.avatarUrl}
-        alt={user.name}
-        className="size-9 rounded-full object-cover"
+        alt={name}
+        className="size-9 shrink-0 rounded-full object-cover ring-1 ring-white/10"
       />
     );
   }
-  const initials = user.name
+
+  const initials = name
     .split(" ")
-    .map((n) => n[0])
+    .map((part) => part[0])
+    .filter(Boolean)
     .slice(0, 2)
-    .join("");
+    .join("")
+    .toUpperCase();
+
   return (
-    <div className="flex size-9 items-center justify-center rounded-full bg-[var(--surface)] text-sm font-bold text-[var(--gold)]">
-      {initials}
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] text-sm font-bold text-[var(--gold)] ring-1 ring-white/10">
+      {initials || "?"}
     </div>
   );
 }

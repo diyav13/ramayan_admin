@@ -4,17 +4,22 @@
 export function EditView({
   title,
   subtitle,
+  badge,
   children,
 }: {
   title: string;
   subtitle: string;
+  badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-serif text-2xl">{title}</h2>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-serif text-2xl">{title}</h2>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
+        </div>
+        {badge}
       </div>
       <div className="rounded-lg border border-white/5 bg-[var(--surface-alt)] p-6">
         {children}

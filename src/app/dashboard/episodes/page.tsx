@@ -1,226 +1,249 @@
 "use client";
 
-import { FormEvent } from "react";
-import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
-import { Select } from "@/components/ui/Select";
-import { Checkbox } from "@/components/ui/Checkbox";
 import { PageHeader } from "@/components/PageHeader";
 import { RowActions } from "@/components/RowActions";
 import { DataTable } from "@/components/DataTable";
 import { EditView } from "@/components/EditView";
-import { FormActions } from "@/components/FormActions";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { PublishBadge } from "@/components/StatusBadges";
-import { useCrud } from "@/hooks/useCrud";
+import { EpisodeEntityDetails } from "@/components/episodes/EpisodeEntityDetails";
+import { EpisodeFiltersBar } from "@/components/episodes/EpisodeFiltersBar";
+import { EpisodeForm } from "@/components/episodes/EpisodeForm";
+import { ListState } from "@/components/ListState";
+import { Pagination } from "@/components/Pagination";
+import { useEpisodes } from "@/hooks/useEpisodes";
 import {
-  generateId,
-  pluralize,
-  readCheckbox,
-  readNumber,
-  readText,
-  today,
-} from "@/lib/utils";
-import { initialChapters } from "@/lib/chapters";
-import { formatDuration, initialEpisodes, type Episode } from "@/lib/episodes";
+  resolveEpisodeChapterAccentColor,
+  resolveEpisodeChapterTitle,
+} from "@/lib/episodes";
+import { pluralize } from "@/lib/utils";
+import type {
+  CreateEpisodeInput,
+  Episode,
+  UpdateEpisodeInput,
+} from "@/types/episode";
 
 const columns = [
   { label: "#" },
   { label: "Episode" },
   { label: "Chapter" },
-  { label: "Duration" },
   { label: "Status" },
   { label: "Actions", align: "right" as const },
 ];
 
-const chapterOptions = [...initialChapters]
-  .sort((a, b) => a.orderIndex - b.orderIndex)
-  .map((c) => ({ value: c.id, label: c.title }));
-
-const findChapter = (id: string) => initialChapters.find((c) => c.id === id);
-const chapterTitle = (id: string) => findChapter(id)?.title ?? "—";
-const chapterAccent = (id: string) => findChapter(id)?.accentColor ?? "#e8a020";
-
 export default function EpisodesPage() {
-  const crud = useCrud<Episode>(initialEpisodes);
-  const sorted = [...crud.items].sort(
-    (a, b) =>
-      a.chapterId.localeCompare(b.chapterId) || a.orderIndex - b.orderIndex
-  );
+  const {
+    chapters,
+    characters,
+    locations,
+    items,
+    pagination,
+    totalCount,
+    pageRange,
+    chapterId,
+    setChapterId,
+    searchInput,
+    setSearchInput,
+    clearSearch,
+    hasActiveFilters,
+    page,
+    setPage,
+    isPaginated,
+    loading,
+    saving,
+    error,
+    editingItem,
+    isEditing,
+    creating,
+    confirmDeleteId,
+    startCreate,
+    startEdit,
+    closeEditor,
+    createEpisode,
+    updateEpisode,
+    deleteEpisode,
+    askDelete,
+    cancelDelete,
+  } = useEpisodes();
 
-  function handleSave(e: FormEvent<HTMLFormElement>, existing: Episode | null) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
+  const chapterOptions = [...chapters]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((chapter) => ({ value: chapter.id, label: chapter.title }));
 
-    const data = {
-      chapterId: readText(form, "chapterId"),
-      title: readText(form, "title"),
-      description: readText(form, "description"),
-      thumbnailUrl: readText(form, "thumbnailUrl"),
-      videoUrl: readText(form, "videoUrl"),
-      orderIndex: readNumber(form, "orderIndex"),
-      durationSeconds: readNumber(form, "durationSeconds"),
-      isPublished: readCheckbox(form, "isPublished"),
-    };
+  const characterOptions = characters.map((character) => ({
+    value: character.id,
+    label: character.name,
+  }));
 
+  const locationOptions = locations.map((location) => ({
+    value: location.id,
+    label: location.name,
+  }));
+
+  const chapterFilterOptions = [
+    { value: "", label: "All chapters" },
+    ...chapterOptions,
+  ];
+
+  const activeFilterChapterId = chapterId || undefined;
+
+  const paginationSummary =
+    isPaginated && pageRange
+      ? `Showing ${pageRange.from}–${pageRange.to} of ${totalCount}`
+      : undefined;
+
+  async function handleSave(
+    payload: CreateEpisodeInput | UpdateEpisodeInput,
+    existing: Episode | null
+  ) {
     if (existing) {
-      crud.updateItem(existing.id, { ...data, updatedAt: today() });
+      await updateEpisode(existing.id, payload as UpdateEpisodeInput);
     } else {
-      crud.addItem({
-        ...data,
-        id: generateId("ep"),
-        createdAt: today(),
-        updatedAt: today(),
-      });
+      await createEpisode(payload as CreateEpisodeInput);
     }
-    crud.closeEditor();
   }
 
-  if (crud.isEditing) {
-    const episode = crud.editingItem;
+  if (isEditing) {
+    const episode = editingItem;
     return (
       <EditView
-        title={crud.creating ? "Add Episode" : "Edit Episode"}
+        title={creating ? "Add Episode" : "Edit Episode"}
         subtitle={
-          crud.creating
+          creating
             ? "Create a new episode"
             : `Editing ${episode?.title ?? "episode"}`
         }
       >
+        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
         <EpisodeForm
           episode={episode}
-          onSave={(e) => handleSave(e, episode)}
-          onCancel={crud.closeEditor}
+          chapterOptions={chapterOptions}
+          characterOptions={characterOptions}
+          locationOptions={locationOptions}
+          saving={saving}
+          creating={creating}
+          defaultDisplayOrder={
+            items.length > 0
+              ? Math.max(...items.map((item) => item.orderIndex)) + 2
+              : 1
+          }
+          onSave={(payload) => handleSave(payload, episode)}
+          onCancel={closeEditor}
         />
       </EditView>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Episode Management"
-        subtitle={`${pluralize(crud.items.length, "episode")} total`}
+        subtitle={
+          loading
+            ? "Loading episodes…"
+            : `${pluralize(totalCount, "episode")} in library`
+        }
         actionLabel="Add Episode"
-        onAction={crud.startCreate}
+        onAction={startCreate}
       />
 
-      <DataTable columns={columns}>
-        {sorted.map((episode) => (
-          <tr
-            key={episode.id}
-            className="border-b border-white/5 last:border-0 hover:bg-white/5"
-          >
-            <td className="px-4 py-3 text-[var(--text-muted)]">
-              {episode.orderIndex}
-            </td>
-            <td className="px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span
-                  className="size-8 shrink-0 rounded"
-                  style={{ backgroundColor: chapterAccent(episode.chapterId) }}
-                />
-                <div>
-                  <p className="font-serif capitalize text-white">
-                    {episode.title}
-                  </p>
-                  <p className="line-clamp-1 max-w-xs text-xs text-[var(--text-muted)]">
-                    {episode.description}
-                  </p>
-                </div>
-              </div>
-            </td>
-            <td className="px-4 py-3 text-[var(--text-muted)]">
-              {chapterTitle(episode.chapterId)}
-            </td>
-            <td className="px-4 py-3 text-[var(--text-muted)]">
-              {formatDuration(episode.durationSeconds)}
-            </td>
-            <td className="px-4 py-3">
-              <PublishBadge published={episode.isPublished} />
-            </td>
-            <td className="px-4 py-3">
-              <RowActions
-                confirming={crud.confirmDeleteId === episode.id}
-                onEdit={() => crud.startEdit(episode.id)}
-                onAskDelete={() => crud.askDelete(episode.id)}
-                onCancelDelete={crud.cancelDelete}
-                onConfirmDelete={() => {
-                  crud.removeItem(episode.id);
-                  crud.cancelDelete();
-                }}
-              />
-            </td>
-          </tr>
-        ))}
-      </DataTable>
+      <EpisodeFiltersBar
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        onSearchClear={clearSearch}
+        chapterId={chapterId}
+        onChapterChange={setChapterId}
+        chapterOptions={chapterFilterOptions}
+      />
+
+      {error && <ErrorBanner message={error} />}
+
+      {loading ? (
+        <ListState message="Loading episodes…" />
+      ) : items.length === 0 ? (
+        <ListState
+          message="No episodes found"
+          hint={
+            hasActiveFilters
+              ? "Try adjusting your search or chapter filter."
+              : "Create your first episode to get started."
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-white/5 bg-[var(--surface-alt)]">
+          <DataTable columns={columns} minWidth={800} embedded>
+            {items.map((episode) => {
+              const chapterColor = resolveEpisodeChapterAccentColor(
+                episode,
+                chapters,
+                activeFilterChapterId
+              );
+
+              return (
+                <tr
+                  key={episode.id}
+                  className="border-b border-white/5 last:border-0 transition hover:bg-white/[0.03]"
+                >
+                  <td className="px-4 py-3.5 align-top text-[var(--text-muted)]">
+                    {episode.orderIndex + 1}
+                  </td>
+                  <td className="px-4 py-3.5 align-top">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span
+                        className="mt-1 h-9 w-0.5 shrink-0 rounded-full opacity-90"
+                        style={{ backgroundColor: chapterColor }}
+                        aria-hidden
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate font-serif text-[15px] capitalize text-white">
+                          {episode.title}
+                        </p>
+                        <p className="truncate text-xs text-[var(--text-muted)]">
+                          {episode.description ?? "No description"}
+                        </p>
+                        <EpisodeEntityDetails
+                          episode={episode}
+                          characters={characters}
+                          locations={locations}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5 align-top text-[var(--text-muted)]">
+                    {resolveEpisodeChapterTitle(
+                      episode,
+                      chapters,
+                      activeFilterChapterId
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5 align-top">
+                    <PublishBadge published={episode.isPublished ?? false} />
+                  </td>
+                  <td className="px-4 py-3.5 align-top">
+                    <RowActions
+                      confirming={confirmDeleteId === episode.id}
+                      onEdit={() => void startEdit(episode.id)}
+                      onAskDelete={() => askDelete(episode.id)}
+                      onCancelDelete={cancelDelete}
+                      onConfirmDelete={() => void deleteEpisode(episode.id)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </DataTable>
+
+          {isPaginated && pagination && (
+            <Pagination
+              pagination={pagination}
+              page={page}
+              onPageChange={setPage}
+              loading={loading}
+              summary={paginationSummary}
+            />
+          )}
+        </div>
+      )}
     </div>
-  );
-}
-
-function EpisodeForm({
-  episode,
-  onSave,
-  onCancel,
-}: {
-  episode: Episode | null;
-  onSave: (e: FormEvent<HTMLFormElement>) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <form onSubmit={onSave} className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input label="Title" name="title" defaultValue={episode?.title} required />
-        <Select
-          label="Chapter"
-          name="chapterId"
-          options={chapterOptions}
-          defaultValue={episode?.chapterId ?? chapterOptions[0]?.value}
-        />
-      </div>
-      <Textarea
-        label="Description"
-        name="description"
-        defaultValue={episode?.description}
-      />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Order"
-          name="orderIndex"
-          type="number"
-          min={0}
-          defaultValue={episode?.orderIndex ?? 0}
-        />
-        <Input
-          label="Duration (seconds)"
-          name="durationSeconds"
-          type="number"
-          min={0}
-          defaultValue={episode?.durationSeconds ?? 0}
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Thumbnail URL"
-          name="thumbnailUrl"
-          placeholder="https://…"
-          defaultValue={episode?.thumbnailUrl}
-        />
-        <Input
-          label="Video URL"
-          name="videoUrl"
-          placeholder="https://…"
-          defaultValue={episode?.videoUrl}
-        />
-      </div>
-      <Checkbox
-        label="Published"
-        name="isPublished"
-        defaultChecked={episode?.isPublished}
-      />
-      <FormActions
-        submitLabel={episode ? "Save Changes" : "Create Episode"}
-        onCancel={onCancel}
-      />
-    </form>
   );
 }

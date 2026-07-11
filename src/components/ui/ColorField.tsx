@@ -16,7 +16,7 @@ export function ColorField({
         name={name}
         type="color"
         defaultValue={defaultValue}
-        className="h-12 w-full cursor-pointer rounded bg-[var(--surface)] p-1"
+        className="h-14 w-full cursor-pointer rounded bg-[var(--surface)] p-1"
       />
     </Field>
   );

@@ -1,21 +1,14 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { logout } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 export function LogoutButton({ className = "" }: { className?: string }) {
-  const router = useRouter();
-
-  function handleLogout() {
-    logout();
-    router.push("/login");
-    router.refresh();
-  }
+  const { logout } = useAuth();
 
   return (
     <button
       type="button"
-      onClick={handleLogout}
+      onClick={() => void logout()}
       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-white/5 hover:text-white ${className}`}
     >
       <LogoutIcon />

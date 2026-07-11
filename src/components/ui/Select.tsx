@@ -21,7 +21,7 @@ export function Select({
     <Field label={label} htmlFor={selectId}>
       <select
         id={selectId}
-        className={`${controlClass} h-12 px-3 ${className}`}
+        className={`${controlClass} h-14 px-4 ${className}`}
         {...props}
       >
         {options.map((opt) => {

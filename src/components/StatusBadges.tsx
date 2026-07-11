@@ -19,3 +19,19 @@ export function PremiumLabel({ premium }: { premium: boolean }) {
     <span className="text-[var(--text-muted)]">Free</span>
   );
 }
+
+export function UserPlanBadge({ premium }: { premium: boolean }) {
+  if (premium) {
+    return (
+      <span className="inline-flex rounded-full border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--gold)]">
+        Premium
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+      User
+    </span>
+  );
+}

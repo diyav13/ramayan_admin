@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Afacad_Flux, Playfair_Display } from "next/font/google";
+import { AuthProvider } from "@/contexts/AuthProvider";
 import "./globals.css";
 
 const afacad = Afacad_Flux({
@@ -23,7 +24,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${afacad.variable} ${playfair.variable} h-full`}>
-      <body className="min-h-full antialiased">{children}</body>
+      <body className="min-h-full antialiased">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
