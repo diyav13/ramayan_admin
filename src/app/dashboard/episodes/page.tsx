@@ -201,6 +201,11 @@ export default function EpisodesPage() {
                         <p className="truncate text-xs text-[var(--text-muted)]">
                           {episode.description ?? "No description"}
                         </p>
+                        {episode.moralOfTheStory ? (
+                          <p className="mt-1 truncate text-xs italic text-[var(--text-muted)]">
+                            Moral: {episode.moralOfTheStory}
+                          </p>
+                        ) : null}
                         <EpisodeEntityDetails
                           episode={episode}
                           characters={characters}

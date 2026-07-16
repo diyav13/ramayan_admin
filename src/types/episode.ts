@@ -13,6 +13,7 @@ export interface Episode {
   chapterId: string;
   title: string;
   description: string | null;
+  moralOfTheStory: string | null;
   thumbnailUrl: string | null;
   contentType: ContentType;
   videoUrl: string | null;
@@ -34,6 +35,7 @@ export interface EpisodeListItem {
   chapterId: string;
   title: string;
   description: string | null;
+  moralOfTheStory?: string | null;
   thumbnailUrl: string | null;
   contentType: ContentType;
   orderIndex: number;
@@ -69,6 +71,8 @@ export interface CreateEpisodeInput {
   chapterId: string;
   title: string;
   description?: string;
+  /** Set on create; send `null` on update to clear. */
+  moralOfTheStory?: string | null;
   thumbnailUrl?: string;
   contentType?: ContentType;
   videoUrl?: string;

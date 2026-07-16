@@ -26,3 +26,9 @@ export function optionalField(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed || undefined;
 }
+
+/** Empty string → null so PATCH can clear nullable API fields. */
+export function nullableField(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed || null;
+}

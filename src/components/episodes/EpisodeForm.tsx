@@ -10,6 +10,7 @@ import { FormActions } from "@/components/FormActions";
 import { EpisodeThumbnailField } from "@/components/episodes/EpisodeThumbnailField";
 import { EpisodeVideoField } from "@/components/episodes/EpisodeVideoField";
 import {
+  nullableField,
   optionalField,
   readCheckbox,
   readNumber,
@@ -50,6 +51,7 @@ function buildEpisodePayload(
     chapterId: readText(form, "chapterId"),
     title: readText(form, "title"),
     description: optionalField(readText(form, "description")),
+    moralOfTheStory: nullableField(readText(form, "moralOfTheStory")),
     thumbnailUrl: resolveMediaForSave(thumbnailPreview, existingThumbnail),
     videoUrl: resolveMediaForSave(videoPreview, existingVideo),
     orderIndex: toApiOrder(readNumber(form, "orderIndex")),
@@ -124,6 +126,13 @@ export function EpisodeForm({
         defaultValue={episode?.description ?? ""}
       />
 
+      <Textarea
+        label="Moral of the Story"
+        name="moralOfTheStory"
+        defaultValue={episode?.moralOfTheStory ?? ""}
+        placeholder="e.g. Honesty and courage lead to the right path."
+      />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <MultiSelect
           label="Characters"
@@ -142,7 +151,8 @@ export function EpisodeForm({
           placeholder="Select locations"
           searchPlaceholder="Search locations…"
           emptyMessage="No locations yet — add them in Information."
-        />      </div>
+        />
+      </div>
 
       <div className="flex flex-wrap items-end gap-6">
         <div className="w-28 shrink-0">
