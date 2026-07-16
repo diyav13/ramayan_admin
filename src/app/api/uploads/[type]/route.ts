@@ -3,7 +3,8 @@ import { getApiBaseUrl } from "@/lib/api/config";
 
 type RouteContext = { params: Promise<{ type: string }> };
 
-const ALLOWED_TYPES = new Set(["thumbnail", "video", "quiz-image"]);
+// "quiz-image" temporarily disabled for image-sequence uploads
+const ALLOWED_TYPES = new Set(["thumbnail", "video"]);
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { type } = await context.params;

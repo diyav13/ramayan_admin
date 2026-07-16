@@ -15,7 +15,7 @@ export const paths = {
   uploads: {
     thumbnail: "/uploads/thumbnail",
     video: "/uploads/video",
-    quizImage: "/uploads/quiz-image",
+    // quizImage: "/uploads/quiz-image", // temporarily disabled for image-sequence
   },
   admin: {
     stats: "/admin/stats",
