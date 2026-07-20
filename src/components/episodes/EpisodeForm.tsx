@@ -107,10 +107,6 @@ export function EpisodeForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const resolvedThumb = resolveThumbnailForSave(
-      thumbnailUrl,
-      episode?.thumbnailUrl
-    );
     const payload = buildEpisodePayload(
       form,
       thumbnailUrl,
@@ -120,16 +116,6 @@ export function EpisodeForm({
       characterIds,
       locationIds
     );
-    // #region agent log
-    console.log("[thumb-debug] form submit", {
-      thumbnailUrlState: thumbnailUrl,
-      existingThumbnail: episode?.thumbnailUrl,
-      resolvedThumb,
-      payloadThumbnailUrl: payload.thumbnailUrl,
-      thumbnailUploading,
-    });
-    fetch('http://127.0.0.1:7575/ingest/74428e7d-57d1-4707-9993-faa512483745',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'98511f'},body:JSON.stringify({sessionId:'98511f',runId:'post-fix',location:'EpisodeForm.tsx:handleSubmit',message:'form submit',data:{thumbnailUrlState:thumbnailUrl||null,existingThumbnail:episode?.thumbnailUrl??null,resolvedThumb:resolvedThumb??null,payloadThumbnailUrl:payload.thumbnailUrl??null,thumbnailUploading},timestamp:Date.now(),hypothesisId:'D,E'})}).catch(()=>{});
-    // #endregion
     await onSave(payload);
   }
 

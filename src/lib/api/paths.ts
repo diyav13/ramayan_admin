@@ -12,6 +12,8 @@ export const paths = {
     root: "/episodes",
     byId: (id: string) => `/episodes/${id}`,
     thumbnailUploadUrl: "/episodes/thumbnail/upload-url",
+    /** Same-origin BFF — presign + S3 PUT on server (avoids bucket CORS). */
+    thumbnailUpload: "/episodes/thumbnail/upload",
   },
   uploads: {
     thumbnail: "/uploads/thumbnail",
