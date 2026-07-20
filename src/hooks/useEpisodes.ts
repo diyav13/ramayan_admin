@@ -166,6 +166,10 @@ export function useEpisodes() {
   };
 
   const updateEpisode = async (id: string, data: UpdateEpisodeInput) => {
+    // #region agent log
+    console.log("[thumb-debug] updateEpisode called", { id, thumbnailUrl: data.thumbnailUrl, keys: Object.keys(data) });
+    fetch('http://127.0.0.1:7575/ingest/74428e7d-57d1-4707-9993-faa512483745',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'98511f'},body:JSON.stringify({sessionId:'98511f',location:'useEpisodes.ts:updateEpisode',message:'updateEpisode payload',data:{id,thumbnailUrl:data.thumbnailUrl??null,hasThumbnailKey:'thumbnailUrl' in data},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     await mutation.run(
       async () => {
         await episodeService.update(id, data);

@@ -21,6 +21,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
 
 /**
  * Episode thumbnail picker — presigned PUT to S3, then stores the public URL.
+ * Local blob previews stay in this component; parent state only gets S3 URLs.
  */
 export function EpisodeThumbnailField({
   value,
@@ -31,8 +32,11 @@ export function EpisodeThumbnailField({
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const displayUrl = localPreview ?? value;
 
   useEffect(() => {
     onUploadingChange?.(uploading);
@@ -51,6 +55,7 @@ export function EpisodeThumbnailField({
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
     }
+    setLocalPreview(null);
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -74,7 +79,18 @@ export function EpisodeThumbnailField({
 
     const localUrl = URL.createObjectURL(file);
     objectUrlRef.current = localUrl;
-    onChange(localUrl);
+    setLocalPreview(localUrl);
+
+    // #region agent log
+    console.log("[thumb-debug] file selected (local preview only)", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      episodeId,
+      parentValue: value,
+    });
+    fetch('http://127.0.0.1:7575/ingest/74428e7d-57d1-4707-9993-faa512483745',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'98511f'},body:JSON.stringify({sessionId:'98511f',runId:'post-fix',location:'EpisodeThumbnailField.tsx:handleFileChange',message:'file selected',data:{fileName:file.name,contentType:file.type,size:file.size,episodeId,parentValue:value||null},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
 
     setUploading(true);
 
@@ -82,10 +98,18 @@ export function EpisodeThumbnailField({
       const publicUrl = await uploadService.episodeThumbnail(file, episodeId);
       revokeLocalPreview();
       onChange(publicUrl);
+      // #region agent log
+      console.log("[thumb-debug] upload success, parent updated", { publicUrl });
+      fetch('http://127.0.0.1:7575/ingest/74428e7d-57d1-4707-9993-faa512483745',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'98511f'},body:JSON.stringify({sessionId:'98511f',runId:'post-fix',location:'EpisodeThumbnailField.tsx:handleFileChange',message:'upload success',data:{publicUrl},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
     } catch (err) {
       revokeLocalPreview();
-      onChange("");
-      setError(getErrorMessage(err, "Thumbnail upload failed"));
+      const errMsg = getErrorMessage(err, "Thumbnail upload failed");
+      setError(errMsg);
+      // #region agent log
+      console.error("[thumb-debug] upload failed", err);
+      fetch('http://127.0.0.1:7575/ingest/74428e7d-57d1-4707-9993-faa512483745',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'98511f'},body:JSON.stringify({sessionId:'98511f',runId:'post-fix',location:'EpisodeThumbnailField.tsx:handleFileChange',message:'upload failed',data:{error:errMsg,parentValue:value||null},timestamp:Date.now(),hypothesisId:'A,B'})}).catch(()=>{});
+      // #endregion
     } finally {
       setUploading(false);
     }
@@ -115,10 +139,10 @@ export function EpisodeThumbnailField({
         disabled={uploading}
       />
 
-      {value ? (
+      {displayUrl ? (
         <div className="relative w-fit">
           <img
-            src={value}
+            src={displayUrl}
             alt="Episode thumbnail"
             className={`${previewClass} ${uploading ? "opacity-60" : ""}`}
           />
