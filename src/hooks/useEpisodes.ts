@@ -142,6 +142,7 @@ export function useEpisodes() {
       }
       editor.startEdit({
         ...row,
+        moralOfTheStory: row.moralOfTheStory ?? null,
         videoUrl: null,
         slideshowData: null,
         createdAt: "",
