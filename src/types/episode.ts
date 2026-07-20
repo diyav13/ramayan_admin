@@ -73,7 +73,8 @@ export interface CreateEpisodeInput {
   description?: string;
   /** Set on create; send `null` on update to clear. */
   moralOfTheStory?: string | null;
-  thumbnailUrl?: string;
+  /** Set on create; send `null` on update to clear. */
+  thumbnailUrl?: string | null;
   contentType?: ContentType;
   videoUrl?: string;
   slideshowData?: unknown | null;
@@ -86,3 +87,18 @@ export interface CreateEpisodeInput {
 }
 
 export type UpdateEpisodeInput = Partial<CreateEpisodeInput>;
+
+export interface EpisodeThumbnailUploadUrlInput {
+  fileName: string;
+  contentType: string;
+  /** Omit for create (draft folder); pass when replacing an existing episode thumbnail. */
+  episodeId?: string;
+}
+
+export interface EpisodeThumbnailUploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  expiresIn: number;
+  headers?: Record<string, string>;
+}

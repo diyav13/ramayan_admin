@@ -22,7 +22,21 @@ import type {
   UpdateEpisodeInput,
 } from "@/types/episode";
 
-/** While upload API is disabled, ignore local blob previews when saving. */
+/** Ignore in-flight blob previews; persist uploaded URLs and allow clearing on update. */
+function resolveThumbnailForSave(
+  previewUrl: string,
+  existingUrl: string | null | undefined
+): string | undefined | null {
+  if (!previewUrl) {
+    return existingUrl ? null : undefined;
+  }
+  if (previewUrl.startsWith("blob:")) {
+    return existingUrl ?? undefined;
+  }
+  return optionalField(previewUrl);
+}
+
+/** While video upload API is disabled, ignore local blob previews when saving. */
 function resolveMediaForSave(
   previewUrl: string,
   existingUrl: string | null | undefined
@@ -52,7 +66,7 @@ function buildEpisodePayload(
     title: readText(form, "title"),
     description: optionalField(readText(form, "description")),
     moralOfTheStory: nullableField(readText(form, "moralOfTheStory")),
-    thumbnailUrl: resolveMediaForSave(thumbnailPreview, existingThumbnail),
+    thumbnailUrl: resolveThumbnailForSave(thumbnailPreview, existingThumbnail),
     videoUrl: resolveMediaForSave(videoPreview, existingVideo),
     orderIndex: toApiOrder(readNumber(form, "orderIndex")),
     isPublished: readCheckbox(form, "isPublished"),
@@ -84,6 +98,7 @@ export function EpisodeForm({
 }) {
   const [thumbnailUrl, setThumbnailUrl] = useState(episode?.thumbnailUrl ?? "");
   const [videoUrl, setVideoUrl] = useState(episode?.videoUrl ?? "");
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [characterIds, setCharacterIds] = useState<string[]>(
     episode?.characterIds ?? episode?.characters?.map((item) => item.id) ?? []
   );
@@ -174,7 +189,12 @@ export function EpisodeForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <EpisodeThumbnailField value={thumbnailUrl} onChange={setThumbnailUrl} />
+        <EpisodeThumbnailField
+          value={thumbnailUrl}
+          onChange={setThumbnailUrl}
+          episodeId={episode?.id}
+          onUploadingChange={setThumbnailUploading}
+        />
         <EpisodeVideoField value={videoUrl} onChange={setVideoUrl} />
       </div>
 
@@ -183,7 +203,7 @@ export function EpisodeForm({
           saving ? "Saving…" : creating ? "Create Episode" : "Save Changes"
         }
         onCancel={onCancel}
-        submitDisabled={saving}
+        submitDisabled={saving || thumbnailUploading}
       />
     </form>
   );

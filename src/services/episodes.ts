@@ -8,6 +8,8 @@ import type {
   Episode,
   EpisodeListItem,
   EpisodeListParams,
+  EpisodeThumbnailUploadUrlInput,
+  EpisodeThumbnailUploadUrlResponse,
   UpdateEpisodeInput,
 } from "@/types/episode";
 
@@ -72,4 +74,10 @@ export const episodeService = {
       .then(normalizeEpisodeEntities),
 
   remove: (id: string) => api.delete<null>(paths.episodes.byId(id)),
+
+  getThumbnailUploadUrl: (data: EpisodeThumbnailUploadUrlInput) =>
+    api.post<EpisodeThumbnailUploadUrlResponse>(
+      paths.episodes.thumbnailUploadUrl,
+      data
+    ),
 };

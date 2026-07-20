@@ -11,6 +11,7 @@ export const paths = {
   episodes: {
     root: "/episodes",
     byId: (id: string) => `/episodes/${id}`,
+    thumbnailUploadUrl: "/episodes/thumbnail/upload-url",
   },
   uploads: {
     thumbnail: "/uploads/thumbnail",
