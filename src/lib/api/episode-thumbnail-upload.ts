@@ -7,8 +7,42 @@ type PresignPayload = EpisodeThumbnailUploadUrlResponse & { url?: string };
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 10 * 1024 * 1024;
 
+/** Must match `getUploadSignedUrl` in ramayana-server `src/utils/s3.ts`. */
+const EPISODE_THUMBNAIL_CACHE_CONTROL =
+  "public, max-age=31536000, immutable";
+
+function resolveContentType(file: File): string {
+  if (file.type && ALLOWED_TYPES.has(file.type)) {
+    return file.type;
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  const byExt: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+
+  return byExt[ext ?? ""] ?? "application/octet-stream";
+}
+
+function buildS3UploadHeaders(
+  presignHeaders: Record<string, string> | undefined,
+  contentType: string
+): Record<string, string> {
+  const pick = (name: string) =>
+    presignHeaders?.[name] ?? presignHeaders?.[name.toLowerCase()];
+
+  return {
+    "Content-Type": pick("Content-Type") ?? contentType,
+    "Cache-Control": pick("Cache-Control") ?? EPISODE_THUMBNAIL_CACHE_CONTROL,
+  };
+}
+
 export function validateEpisodeThumbnailFile(file: File): string | null {
-  if (!ALLOWED_TYPES.has(file.type)) {
+  const contentType = resolveContentType(file);
+  if (!ALLOWED_TYPES.has(contentType)) {
     return "Thumbnail must be JPEG, PNG, or WebP.";
   }
   if (file.size > MAX_BYTES) {
@@ -46,6 +80,8 @@ export async function uploadEpisodeThumbnailViaPresign(
     throw new Error(validationError);
   }
 
+  const contentType = resolveContentType(file);
+
   const presignResponse = await fetch(
     `${getApiBaseUrl()}/episodes/thumbnail/upload-url`,
     {
@@ -56,7 +92,7 @@ export async function uploadEpisodeThumbnailViaPresign(
       },
       body: JSON.stringify({
         fileName: file.name,
-        contentType: file.type,
+        contentType,
         ...(episodeId ? { episodeId } : {}),
       }),
     }
@@ -79,10 +115,7 @@ export async function uploadEpisodeThumbnailViaPresign(
     unwrapApiResponse<PresignPayload>(presignBody)
   );
 
-  const uploadHeaders: Record<string, string> = {
-    ...presign.headers,
-    "Content-Type": file.type,
-  };
+  const uploadHeaders = buildS3UploadHeaders(presign.headers, contentType);
 
   const putResponse = await fetch(presign.uploadUrl, {
     method: "PUT",
@@ -91,7 +124,12 @@ export async function uploadEpisodeThumbnailViaPresign(
   });
 
   if (!putResponse.ok) {
-    throw new Error(`Upload failed (${putResponse.status})`);
+    const detail = (await putResponse.text()).trim().slice(0, 200);
+    throw new Error(
+      detail
+        ? `Upload failed (${putResponse.status}): ${detail}`
+        : `Upload failed (${putResponse.status})`
+    );
   }
 
   return presign.publicUrl;
