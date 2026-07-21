@@ -8,8 +8,18 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 10 * 1024 * 1024;
 
 /** Must match `getUploadSignedUrl` in ramayana-server `src/utils/s3.ts`. */
-const EPISODE_THUMBNAIL_CACHE_CONTROL =
-  "public, max-age=31536000, immutable";
+const MEDIA_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+export type MediaImageUploadType = "episode" | "character" | "location";
+
+export type MediaImageUploadOptions = {
+  /** Asset folder: episode (default), character, or location. */
+  type?: MediaImageUploadType;
+  /** Existing episode id (legacy field still accepted by the upload-url API). */
+  episodeId?: string;
+  /** Existing character / location / episode id for the S3 folder. */
+  entityId?: string;
+};
 
 function resolveContentType(file: File): string {
   if (file.type && ALLOWED_TYPES.has(file.type)) {
@@ -36,17 +46,17 @@ function buildS3UploadHeaders(
 
   return {
     "Content-Type": pick("Content-Type") ?? contentType,
-    "Cache-Control": pick("Cache-Control") ?? EPISODE_THUMBNAIL_CACHE_CONTROL,
+    "Cache-Control": pick("Cache-Control") ?? MEDIA_CACHE_CONTROL,
   };
 }
 
 export function validateEpisodeThumbnailFile(file: File): string | null {
   const contentType = resolveContentType(file);
   if (!ALLOWED_TYPES.has(contentType)) {
-    return "Thumbnail must be JPEG, PNG, or WebP.";
+    return "Image must be JPEG, PNG, or WebP.";
   }
   if (file.size > MAX_BYTES) {
-    return "Thumbnail must be 10 MB or smaller.";
+    return "Image must be 10 MB or smaller.";
   }
   return null;
 }
@@ -69,18 +79,28 @@ function resolvePresignUrls(presign: PresignPayload): {
   return { uploadUrl, publicUrl, headers: presign.headers };
 }
 
-/** Presign on the backend, then PUT bytes to S3 from the server (avoids browser CORS). */
+/**
+ * Presign on the backend, then PUT bytes to S3 from the server (avoids browser CORS).
+ * Same endpoint for episode thumbnails, character images, and location images.
+ */
 export async function uploadEpisodeThumbnailViaPresign(
   file: File,
   authorization: string | null,
-  episodeId?: string
+  options?: MediaImageUploadOptions | string
 ): Promise<string> {
   const validationError = validateEpisodeThumbnailFile(file);
   if (validationError) {
     throw new Error(validationError);
   }
 
+  // Back-compat: callers that passed a bare episodeId string.
+  const opts: MediaImageUploadOptions =
+    typeof options === "string" ? { episodeId: options } : (options ?? {});
+
   const contentType = resolveContentType(file);
+  const type = opts.type ?? "episode";
+  const entityId = opts.entityId?.trim() || undefined;
+  const episodeId = opts.episodeId?.trim() || undefined;
 
   const presignResponse = await fetch(
     `${getApiBaseUrl()}/episodes/thumbnail/upload-url`,
@@ -93,7 +113,10 @@ export async function uploadEpisodeThumbnailViaPresign(
       body: JSON.stringify({
         fileName: file.name,
         contentType,
-        ...(episodeId ? { episodeId } : {}),
+        type,
+        ...(entityId ? { entityId } : {}),
+        // Episodes still send episodeId for existing server compatibility.
+        ...(type === "episode" && episodeId ? { episodeId } : {}),
       }),
     }
   );

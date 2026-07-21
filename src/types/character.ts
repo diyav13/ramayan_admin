@@ -10,7 +10,8 @@ export interface Character {
 export interface CreateCharacterInput {
   name: string;
   description?: string;
-  imageUrl?: string;
+  /** Set on create; send `null` on update to clear. */
+  imageUrl?: string | null;
 }
 
 export type UpdateCharacterInput = Partial<CreateCharacterInput>;

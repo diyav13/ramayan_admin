@@ -10,7 +10,8 @@ export interface Location {
 export interface CreateLocationInput {
   name: string;
   description?: string;
-  imageUrl?: string;
+  /** Set on create; send `null` on update to clear. */
+  imageUrl?: string | null;
 }
 
 export type UpdateLocationInput = Partial<CreateLocationInput>;

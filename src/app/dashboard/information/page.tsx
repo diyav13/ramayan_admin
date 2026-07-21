@@ -54,6 +54,7 @@ export default function InformationPage() {
             saving={characters.saving}
             creating={characters.creating}
             imageVariant="portrait"
+            imageUploadType="character"
             onSave={async (payload) => {
               if (character) {
                 await characters.updateCharacter(
@@ -91,6 +92,7 @@ export default function InformationPage() {
           saving={locations.saving}
           creating={locations.creating}
           imageVariant="landscape"
+          imageUploadType="location"
           onSave={async (payload) => {
             if (location) {
               await locations.updateLocation(

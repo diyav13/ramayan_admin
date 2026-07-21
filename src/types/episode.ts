@@ -91,6 +91,10 @@ export type UpdateEpisodeInput = Partial<CreateEpisodeInput>;
 export interface EpisodeThumbnailUploadUrlInput {
   fileName: string;
   contentType: string;
+  /** Asset folder — episode (default), character, or location. */
+  type?: "episode" | "character" | "location";
+  /** Existing character / location / episode id for the S3 folder. */
+  entityId?: string;
   /** Omit for create (draft folder); pass when replacing an existing episode thumbnail. */
   episodeId?: string;
 }

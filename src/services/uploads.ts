@@ -1,6 +1,9 @@
 import { api } from "@/lib/api";
 import { paths } from "@/lib/api/paths";
-import { validateEpisodeThumbnailFile } from "@/lib/api/episode-thumbnail-upload";
+import {
+  validateEpisodeThumbnailFile,
+  type MediaImageUploadType,
+} from "@/lib/api/episode-thumbnail-upload";
 
 type UploadKind = "thumbnail" | "video"; // | "quizImage"
 
@@ -8,7 +11,7 @@ interface UploadResult {
   url: string;
 }
 
-interface EpisodeThumbnailUploadResult {
+interface MediaImageUploadResult {
   publicUrl: string;
 }
 
@@ -24,10 +27,17 @@ async function uploadFile(kind: UploadKind, file: File): Promise<string> {
   return result.url;
 }
 
-/** Upload via same-origin BFF — presign + S3 PUT run server-side (no browser CORS). */
-async function uploadEpisodeThumbnail(
+/**
+ * Upload via same-origin BFF — presign + S3 PUT run server-side (no browser CORS).
+ * Used for episode thumbnails, character images, and location images.
+ */
+async function uploadMediaImage(
   file: File,
-  episodeId?: string
+  options: {
+    type?: MediaImageUploadType;
+    entityId?: string;
+    episodeId?: string;
+  } = {}
 ): Promise<string> {
   const validationError = validateEpisodeThumbnailFile(file);
   if (validationError) {
@@ -36,11 +46,15 @@ async function uploadEpisodeThumbnail(
 
   const formData = new FormData();
   formData.append("file", file);
-  if (episodeId) {
-    formData.append("episodeId", episodeId);
+  formData.append("type", options.type ?? "episode");
+  if (options.entityId) {
+    formData.append("entityId", options.entityId);
+  }
+  if (options.episodeId) {
+    formData.append("episodeId", options.episodeId);
   }
 
-  const result = await api.upload<EpisodeThumbnailUploadResult>(
+  const result = await api.upload<MediaImageUploadResult>(
     paths.episodes.thumbnailUpload,
     formData
   );
@@ -57,6 +71,12 @@ export const uploadService = {
   thumbnail: (file: File) => uploadFile("thumbnail", file),
   video: (file: File) => uploadFile("video", file),
   episodeThumbnail: (file: File, episodeId?: string) =>
-    uploadEpisodeThumbnail(file, episodeId),
+    uploadMediaImage(file, { type: "episode", episodeId }),
+  /** Character or location portrait/landscape image. */
+  entityImage: (
+    file: File,
+    type: "character" | "location",
+    entityId?: string
+  ) => uploadMediaImage(file, { type, entityId }),
   // quizImage: (file: File) => uploadFile("quizImage", file), // temporarily disabled for image-sequence
 };

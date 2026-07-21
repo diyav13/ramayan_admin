@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { optionalField, readText } from "@/lib/utils";
 
 export type InfoEntityValues = {
+  id?: string;
   name: string;
   imageUrl: string | null;
   description: string | null;
@@ -15,18 +16,18 @@ export type InfoEntityValues = {
 
 export type InfoEntityPayload = {
   name: string;
-  imageUrl?: string;
+  /** S3 public URL; `null` clears on update; omit when unchanged/empty on create. */
+  imageUrl?: string | null;
   description?: string;
 };
 
-/** While upload API is disabled, ignore local blob previews when saving. */
+/** Persist uploaded S3 URLs; allow clearing on update when user removes the image. */
 function resolveImageForSave(
   previewUrl: string,
   existingUrl: string | null | undefined
-): string | undefined {
-  if (!previewUrl) return undefined;
-  if (previewUrl.startsWith("blob:")) {
-    return existingUrl ? existingUrl : undefined;
+): string | undefined | null {
+  if (!previewUrl) {
+    return existingUrl ? null : undefined;
   }
   return optionalField(previewUrl);
 }
@@ -49,6 +50,7 @@ type InfoEntityFormProps = {
   saving: boolean;
   creating: boolean;
   imageVariant?: "portrait" | "landscape";
+  imageUploadType: "character" | "location";
   onSave: (payload: InfoEntityPayload) => Promise<void>;
   onCancel: () => void;
 };
@@ -59,10 +61,12 @@ export function InfoEntityForm({
   saving,
   creating,
   imageVariant = "portrait",
+  imageUploadType,
   onSave,
   onCancel,
 }: InfoEntityFormProps) {
   const [imageUrl, setImageUrl] = useState(entity?.imageUrl ?? "");
+  const [imageUploading, setImageUploading] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,6 +85,9 @@ export function InfoEntityForm({
           value={imageUrl}
           onChange={setImageUrl}
           variant={imageVariant}
+          uploadType={imageUploadType}
+          entityId={entity?.id}
+          onUploadingChange={setImageUploading}
         />
         <div className="space-y-4">
           <Input
@@ -108,7 +115,7 @@ export function InfoEntityForm({
               : "Save Changes"
         }
         onCancel={onCancel}
-        submitDisabled={saving}
+        submitDisabled={saving || imageUploading}
       />
     </form>
   );
