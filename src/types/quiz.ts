@@ -1,5 +1,11 @@
 export type QuizType = "TRUE_FALSE" | "MCQ" | "IMAGE_SEQUENCE";
 
+/** One frame in an IMAGE_SEQUENCE question. */
+export interface QuizImageSequenceItem {
+  imageUrl: string;
+  text?: string;
+}
+
 export interface Quiz {
   id: string;
   chapterId?: string;
@@ -15,7 +21,9 @@ export interface Quiz {
   answer: boolean | number | number[];
   /** MCQ options. */
   options?: string[];
-  /** IMAGE_SEQUENCE image URLs. */
+  /** IMAGE_SEQUENCE frames in correct answer order. */
+  items?: QuizImageSequenceItem[];
+  /** @deprecated Legacy — use `items`. */
   images?: string[];
   orderIndex: number;
   isPublished: boolean;
@@ -42,6 +50,8 @@ export interface QuizListItem {
   description: string | null;
   answer: boolean | number | number[];
   options?: string[];
+  items?: QuizImageSequenceItem[];
+  /** @deprecated Legacy — use `items`. */
   images?: string[];
   orderIndex: number;
   isPublished?: boolean;
@@ -72,9 +82,10 @@ export interface CreateQuizInput {
   type: QuizType;
   question: string;
   description?: string;
-  answer: boolean | number | number[];
+  /** Required for TRUE_FALSE and MCQ; omitted for IMAGE_SEQUENCE (order is in `items`). */
+  answer?: boolean | number | number[];
   options?: string[];
-  images?: string[];
+  items?: QuizImageSequenceItem[];
   orderIndex?: number;
   isPublished?: boolean;
 }

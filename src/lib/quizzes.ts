@@ -1,6 +1,17 @@
 import type { Chapter } from "@/types/chapter";
 import type { EpisodeListItem } from "@/types/episode";
-import type { QuizListItem, QuizType } from "@/types/quiz";
+import type {
+  Quiz,
+  QuizImageSequenceItem,
+  QuizListItem,
+  QuizType,
+} from "@/types/quiz";
+
+/** Local form state — allows blob previews while uploading. */
+export type QuizImageSequenceFormItem = {
+  imageUrl: string;
+  text: string;
+};
 
 const QUIZ_TYPE_LABELS: Record<QuizType, string> = {
   TRUE_FALSE: "True / False",
@@ -12,7 +23,7 @@ export function quizTypeLabel(type: QuizType): string {
   return QUIZ_TYPE_LABELS[type] ?? type;
 }
 
-/** Reorder image URLs into the correct answer sequence for the admin form. */
+/** Reorder legacy image URLs into the correct answer sequence. */
 export function imagesInCorrectOrder(
   images: string[] | undefined,
   answer: boolean | number | number[] | undefined
@@ -25,6 +36,39 @@ export function imagesInCorrectOrder(
     .filter((url): url is string => Boolean(url));
 
   return ordered.length === images.length ? ordered : [...images];
+}
+
+/** Normalize API quiz data into form-ready IMAGE_SEQUENCE items. */
+export function quizItemsForForm(
+  quiz:
+    | Pick<Quiz, "items" | "images" | "answer" | "type">
+    | Pick<QuizListItem, "items" | "images" | "answer" | "type">
+    | null
+    | undefined
+): QuizImageSequenceFormItem[] {
+  if (quiz?.items?.length) {
+    return quiz.items.map((item) => ({
+      imageUrl: item.imageUrl,
+      text: item.text ?? "",
+    }));
+  }
+
+  return imagesInCorrectOrder(quiz?.images, quiz?.answer).map((imageUrl) => ({
+    imageUrl,
+    text: "",
+  }));
+}
+
+/** Persisted items for create/update — drops in-flight blob previews. */
+export function resolveItemsForSave(
+  items: QuizImageSequenceFormItem[]
+): QuizImageSequenceItem[] {
+  return items
+    .filter((item) => item.imageUrl && !item.imageUrl.startsWith("blob:"))
+    .map((item) => ({
+      imageUrl: item.imageUrl,
+      text: item.text.trim(),
+    }));
 }
 
 export function resolveQuizChapterTitle(

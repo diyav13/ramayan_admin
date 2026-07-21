@@ -10,7 +10,7 @@ import {
   DEFAULT_LIMIT,
   totalFromPagination,
 } from "@/lib/pagination";
-import { imagesInCorrectOrder } from "@/lib/quizzes";
+import { quizItemsForForm } from "@/lib/quizzes";
 import { chapterService } from "@/services/chapters";
 import { episodeService } from "@/services/episodes";
 import { quizService } from "@/services/quizzes";
@@ -169,10 +169,7 @@ export function useQuizzes() {
       editor.startEdit({
         ...quiz,
         chapterId: chapterId || quiz.chapterId,
-        images: imagesInCorrectOrder(quiz.images, quiz.answer),
-        answer: Array.isArray(quiz.answer)
-          ? quiz.images?.map((_, i) => i) ?? quiz.answer
-          : quiz.answer,
+        items: quizItemsForForm(quiz),
       });
     } catch {
       const row = items.find((item) => item.id === id);
@@ -186,15 +183,12 @@ export function useQuizzes() {
         row.episode?.chapter?.id ??
         "";
       if (chapterId) await loadFormEpisodes(chapterId);
-      const orderedImages = imagesInCorrectOrder(row.images, row.answer);
       editor.startEdit({
         ...row,
         chapterId: chapterId || row.chapterId,
-        answer: Array.isArray(row.answer)
-          ? orderedImages.map((_, i) => i)
-          : row.answer,
+        answer: row.answer,
         options: row.options,
-        images: orderedImages,
+        items: quizItemsForForm(row),
         isPublished: row.isPublished ?? false,
         createdAt: "",
         updatedAt: "",

@@ -8,7 +8,11 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { imagesInCorrectOrder } from "@/lib/quizzes";
+import {
+  quizItemsForForm,
+  resolveItemsForSave,
+  type QuizImageSequenceFormItem,
+} from "@/lib/quizzes";
 import { optionalField, readCheckbox, readNumber, readText } from "@/lib/utils";
 import type {
   CreateQuizInput,
@@ -27,11 +31,6 @@ const TRUE_FALSE_OPTIONS = [
   { value: "true", label: "True" },
   { value: "false", label: "False" },
 ];
-
-/** Ignore in-flight blob previews when saving. */
-function resolveImagesForSave(images: string[]): string[] {
-  return images.filter((url) => url && !url.startsWith("blob:"));
-}
 
 function toApiOrder(displayOrder: number): number {
   return Math.max(0, displayOrder - 1);
@@ -56,7 +55,7 @@ function buildQuizPayload(
   type: QuizType,
   mcqOptions: string[],
   mcqAnswer: string,
-  images: string[]
+  sequenceItems: QuizImageSequenceFormItem[]
 ): CreateQuizInput | UpdateQuizInput {
   const base = {
     episodeId: readText(form, "episodeId"),
@@ -84,12 +83,10 @@ function buildQuizPayload(
     };
   }
 
-  const resolvedImages = resolveImagesForSave(images);
+  const resolvedItems = resolveItemsForSave(sequenceItems);
   return {
     ...base,
-    images: resolvedImages,
-    // Images are stored in correct order; answer is identity indices.
-    answer: resolvedImages.map((_, i) => i),
+    items: resolvedItems,
   };
 }
 
@@ -129,8 +126,8 @@ export function QuizForm({
     quiz?.options && quiz.options.length >= 2 ? quiz.options : ["", ""]
   );
   const [mcqAnswer, setMcqAnswer] = useState(mcqAnswerText(quiz));
-  const [images, setImages] = useState<string[]>(() =>
-    imagesInCorrectOrder(quiz?.images, quiz?.answer)
+  const [sequenceItems, setSequenceItems] = useState<QuizImageSequenceFormItem[]>(
+    () => quizItemsForForm(quiz)
   );
   const [imageUploading, setImageUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -170,7 +167,7 @@ export function QuizForm({
         "";
       if (nextChapter) setChapterId(nextChapter);
       setEpisodeId(quiz.episodeId);
-      setImages(imagesInCorrectOrder(quiz.images, quiz.answer));
+      setSequenceItems(quizItemsForForm(quiz));
     }
   }, [creating, quiz]);
 
@@ -220,7 +217,7 @@ export function QuizForm({
         setFormError("Please wait for image uploads to finish.");
         return;
       }
-      const persisted = resolveImagesForSave(images);
+      const persisted = resolveItemsForSave(sequenceItems);
       if (persisted.length < 2) {
         setFormError("Image sequence needs at least two images.");
         return;
@@ -233,7 +230,7 @@ export function QuizForm({
       type,
       mcqOptions,
       mcqAnswer,
-      images
+      sequenceItems
     );
     await onSave(payload);
   }
@@ -303,8 +300,8 @@ export function QuizForm({
 
       {type === "IMAGE_SEQUENCE" && (
         <QuizImageSequenceField
-          images={images}
-          onChange={setImages}
+          items={sequenceItems}
+          onChange={setSequenceItems}
           chapterId={chapterId}
           episodeId={episodeId}
           questionId={quiz?.id}

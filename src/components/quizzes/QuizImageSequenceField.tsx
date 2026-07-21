@@ -11,13 +11,14 @@ import {
 import { Field } from "@/components/ui/Field";
 import { getErrorMessage } from "@/lib/api/errors";
 import { validateQuizImageFile } from "@/lib/api/quiz-image-upload";
+import type { QuizImageSequenceFormItem } from "@/lib/quizzes";
 import { uploadService } from "@/services/uploads";
 
 const MAX_IMAGES = 10;
 
 type QuizImageSequenceFieldProps = {
-  images: string[];
-  onChange: (images: string[]) => void;
+  items: QuizImageSequenceFormItem[];
+  onChange: (items: QuizImageSequenceFormItem[]) => void;
   chapterId: string;
   episodeId: string;
   /** Existing quiz id when editing — uploads land under that question folder. */
@@ -25,12 +26,16 @@ type QuizImageSequenceFieldProps = {
   onUploadingChange?: (uploading: boolean) => void;
 };
 
+function formatIndex(index: number): string {
+  return String(index + 1).padStart(2, "0");
+}
+
 /**
  * Multi-image picker for image-sequence questions.
- * Presign → S3 PUT → public URL; drag cards to set the correct answer order.
+ * Each row: index, thumbnail, optional label, drag handle.
  */
 export function QuizImageSequenceField({
-  images,
+  items,
   onChange,
   chapterId,
   episodeId,
@@ -41,7 +46,7 @@ export function QuizImageSequenceField({
   const inputRef = useRef<HTMLInputElement>(null);
   const objectUrlsRef = useRef<Set<string>>(new Set());
   const draftIdRef = useRef<string | undefined>(undefined);
-  const imagesRef = useRef(images);
+  const itemsRef = useRef(items);
   const [error, setError] = useState<string | null>(null);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -51,7 +56,7 @@ export function QuizImageSequenceField({
   const canUpload = Boolean(chapterId && episodeId);
   const isUploading = uploadingCount > 0;
 
-  imagesRef.current = images;
+  itemsRef.current = items;
 
   useEffect(() => {
     onUploadingChange?.(isUploading);
@@ -78,21 +83,21 @@ export function QuizImageSequenceField({
   }
 
   function replaceBlobAt(index: number, publicUrl: string) {
-    const current = imagesRef.current;
-    const blobUrl = current[index];
+    const current = itemsRef.current;
+    const blobUrl = current[index]?.imageUrl;
     if (blobUrl) revokeBlobUrl(blobUrl);
 
     const next = [...current];
-    next[index] = publicUrl;
+    next[index] = { ...next[index], imageUrl: publicUrl };
     onChange(next);
   }
 
-  function removeBlobPlaceholders(indices: number[]) {
-    const current = imagesRef.current;
+  function removeAtIndices(indices: number[]) {
+    const current = itemsRef.current;
     const removeSet = new Set(indices);
-    const next = current.filter((url, index) => {
+    const next = current.filter((item, index) => {
       if (removeSet.has(index)) {
-        revokeBlobUrl(url);
+        revokeBlobUrl(item.imageUrl);
         return false;
       }
       return true;
@@ -124,7 +129,7 @@ export function QuizImageSequenceField({
       return;
     }
 
-    const currentCount = imagesRef.current.length;
+    const currentCount = itemsRef.current.length;
     if (currentCount + files.length > MAX_IMAGES) {
       setError(`You can add up to ${MAX_IMAGES} images.`);
       return;
@@ -140,13 +145,13 @@ export function QuizImageSequenceField({
     setError(null);
 
     const startIndex = currentCount;
-    const blobUrls = files.map((file) => {
+    const newItems: QuizImageSequenceFormItem[] = files.map((file) => {
       const localUrl = URL.createObjectURL(file);
       objectUrlsRef.current.add(localUrl);
-      return localUrl;
+      return { imageUrl: localUrl, text: "" };
     });
 
-    onChange([...imagesRef.current, ...blobUrls]);
+    onChange([...itemsRef.current, ...newItems]);
     setUploadingCount((count) => count + files.length);
 
     const results = await Promise.allSettled(
@@ -163,7 +168,7 @@ export function QuizImageSequenceField({
     setUploadingCount((count) => Math.max(0, count - files.length));
 
     if (failedIndices.length > 0) {
-      removeBlobPlaceholders(failedIndices);
+      removeAtIndices(failedIndices);
       const firstError = results.find(
         (result): result is PromiseRejectedResult => result.status === "rejected"
       );
@@ -186,8 +191,14 @@ export function QuizImageSequenceField({
 
   function handleRemove(index: number) {
     if (isUploading) return;
-    revokeBlobUrl(images[index]);
-    onChange(images.filter((_, i) => i !== index));
+    revokeBlobUrl(items[index].imageUrl);
+    onChange(items.filter((_, i) => i !== index));
+  }
+
+  function updateText(index: number, text: string) {
+    const next = [...items];
+    next[index] = { ...next[index], text };
+    onChange(next);
   }
 
   function reorder(from: number, to: number) {
@@ -196,12 +207,12 @@ export function QuizImageSequenceField({
       from === to ||
       from < 0 ||
       to < 0 ||
-      from >= images.length ||
-      to >= images.length
+      from >= items.length ||
+      to >= items.length
     ) {
       return;
     }
-    const copy = [...images];
+    const copy = [...items];
     const [item] = copy.splice(from, 1);
     copy.splice(to, 0, item);
     onChange(copy);
@@ -260,7 +271,7 @@ export function QuizImageSequenceField({
         multiple
         className="sr-only"
         onChange={handleFileChange}
-        disabled={!canUpload || isUploading || images.length >= MAX_IMAGES}
+        disabled={!canUpload || isUploading || items.length >= MAX_IMAGES}
       />
 
       {!canUpload ? (
@@ -269,22 +280,22 @@ export function QuizImageSequenceField({
         </p>
       ) : null}
 
-      {images.length > 0 ? (
-        <ul className="mb-3 flex flex-wrap gap-3">
-          {images.map((url, index) => {
+      {items.length > 0 ? (
+        <ul className="mb-3 space-y-2">
+          {items.map((item, index) => {
             const isDragging = dragIndex === index;
             const isOver = overIndex === index && dragIndex !== index;
-            const isBlob = url.startsWith("blob:");
+            const isBlob = item.imageUrl.startsWith("blob:");
 
             return (
               <li
-                key={`${url}-${index}`}
+                key={`${item.imageUrl}-${index}`}
                 draggable={!isUploading}
                 onDragStart={() => handleDragStart(index)}
                 onDragOver={(event) => handleDragOver(event, index)}
                 onDrop={(event) => handleDrop(event, index)}
                 onDragEnd={handleDragEnd}
-                className={`group relative w-28 shrink-0 overflow-hidden rounded border bg-[var(--surface)] ${
+                className={`group flex items-center gap-3 rounded-md border bg-[var(--surface)] px-3 py-2.5 ${
                   isUploading ? "cursor-default" : "cursor-grab active:cursor-grabbing"
                 } ${
                   isDragging
@@ -294,44 +305,51 @@ export function QuizImageSequenceField({
                       : "border-white/10"
                 }`}
               >
-                <div className="absolute left-1.5 top-1.5 z-10 flex items-center gap-1">
-                  <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    {index + 1}
-                  </span>
-                  {!isUploading ? (
-                    <span
-                      aria-hidden
-                      className="rounded bg-black/50 px-1 py-0.5 text-[var(--text-muted)]"
-                    >
-                      <GripIcon />
-                    </span>
+                <span className="w-7 shrink-0 text-xs font-semibold tabular-nums text-[var(--text-muted)]">
+                  {formatIndex(index)}
+                </span>
+
+                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded bg-black/20">
+                  <img
+                    src={item.imageUrl}
+                    alt={`Sequence image ${index + 1}`}
+                    className={`h-full w-full object-cover ${
+                      isBlob && isUploading ? "opacity-60" : ""
+                    }`}
+                    draggable={false}
+                  />
+                  {isBlob && isUploading ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] text-white">
+                      Uploading…
+                    </div>
                   ) : null}
                 </div>
+
+                <input
+                  type="text"
+                  value={item.text}
+                  onChange={(event) => updateText(index, event.target.value)}
+                  placeholder="Optional label or description"
+                  disabled={isUploading}
+                  className="h-11 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-0 disabled:opacity-60"
+                />
+
+                <span
+                  aria-hidden
+                  className="shrink-0 text-[var(--text-muted)] opacity-60 group-hover:opacity-100"
+                >
+                  <GripIcon />
+                </span>
 
                 <button
                   type="button"
                   onClick={() => handleRemove(index)}
                   disabled={isUploading}
                   aria-label={`Remove image ${index + 1}`}
-                  className="absolute right-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full border border-white/15 bg-black/70 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80 disabled:opacity-0"
+                  className="shrink-0 text-xs text-[var(--text-muted)] transition hover:text-red-300 disabled:opacity-30"
                 >
-                  <CrossIcon />
+                  Remove
                 </button>
-
-                <img
-                  src={url}
-                  alt={`Sequence image ${index + 1}`}
-                  className={`aspect-square w-full object-cover ${
-                    isBlob && isUploading ? "opacity-60" : ""
-                  }`}
-                  draggable={false}
-                />
-
-                {isBlob && isUploading ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] text-white">
-                    Uploading…
-                  </div>
-                ) : null}
               </li>
             );
           })}
@@ -344,8 +362,8 @@ export function QuizImageSequenceField({
         onDragOver={handlePickerDragOver}
         onDragLeave={handlePickerDragLeave}
         onDrop={handlePickerDrop}
-        disabled={!canUpload || isUploading || images.length >= MAX_IMAGES}
-        className={`flex h-24 w-full max-w-md flex-col items-start justify-center gap-1 rounded border border-dashed px-4 text-left outline-none transition focus-visible:ring-1 focus-visible:ring-[var(--gold)] disabled:cursor-not-allowed disabled:opacity-60 ${
+        disabled={!canUpload || isUploading || items.length >= MAX_IMAGES}
+        className={`flex h-24 w-full flex-col items-start justify-center gap-1 rounded border border-dashed px-4 text-left outline-none transition focus-visible:ring-1 focus-visible:ring-[var(--gold)] disabled:cursor-not-allowed disabled:opacity-60 ${
           isDropActive
             ? "border-[var(--gold)] bg-[var(--gold)]/10"
             : "border-white/15 bg-[var(--surface)] hover:border-white/25 hover:bg-white/5"
@@ -355,12 +373,12 @@ export function QuizImageSequenceField({
           <ImageIcon />
           {isUploading
             ? "Uploading images…"
-            : images.length > 0
+            : items.length > 0
               ? "Add more images"
               : "Drop images here or browse"}
         </span>
         <span className="pl-7 text-xs text-[var(--text-muted)]">
-          JPEG, PNG, or WebP · up to {MAX_IMAGES} · drag to set order
+          JPEG, PNG, or WebP · up to {MAX_IMAGES} · drag rows to set order
         </span>
       </button>
       {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
@@ -370,30 +388,13 @@ export function QuizImageSequenceField({
 
 function GripIcon() {
   return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
       <circle cx="9" cy="6" r="1.5" />
       <circle cx="15" cy="6" r="1.5" />
       <circle cx="9" cy="12" r="1.5" />
       <circle cx="15" cy="12" r="1.5" />
       <circle cx="9" cy="18" r="1.5" />
       <circle cx="15" cy="18" r="1.5" />
-    </svg>
-  );
-}
-
-function CrossIcon() {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
     </svg>
   );
 }
