@@ -4,8 +4,9 @@ import {
   validateEpisodeThumbnailFile,
   type MediaImageUploadType,
 } from "@/lib/api/episode-thumbnail-upload";
+import type { QuizImageUploadOptions } from "@/types/quiz";
 
-type UploadKind = "thumbnail" | "video"; // | "quizImage"
+type UploadKind = "thumbnail" | "video";
 
 interface UploadResult {
   url: string;
@@ -13,6 +14,11 @@ interface UploadResult {
 
 interface MediaImageUploadResult {
   publicUrl: string;
+}
+
+interface QuizImageUploadResult {
+  publicUrl: string;
+  draftId?: string;
 }
 
 async function uploadFile(kind: UploadKind, file: File): Promise<string> {
@@ -67,6 +73,46 @@ async function uploadMediaImage(
   return publicUrl;
 }
 
+/**
+ * Upload quiz image-sequence frame via same-origin BFF (presign + S3 PUT).
+ */
+async function uploadQuizImage(
+  file: File,
+  options: QuizImageUploadOptions
+): Promise<QuizImageUploadResult> {
+  const validationError = validateEpisodeThumbnailFile(file);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("chapterId", options.chapterId);
+  formData.append("episodeId", options.episodeId);
+  formData.append("sequenceIndex", String(options.sequenceIndex));
+  if (options.questionId) {
+    formData.append("questionId", options.questionId);
+  }
+  if (options.draftId) {
+    formData.append("draftId", options.draftId);
+  }
+
+  const result = await api.upload<QuizImageUploadResult>(
+    paths.quizzes.imageUpload,
+    formData
+  );
+
+  const publicUrl = result.publicUrl?.trim();
+  if (!publicUrl) {
+    throw new Error("Upload response missing publicUrl");
+  }
+
+  return {
+    publicUrl,
+    draftId: result.draftId?.trim() || undefined,
+  };
+}
+
 export const uploadService = {
   thumbnail: (file: File) => uploadFile("thumbnail", file),
   video: (file: File) => uploadFile("video", file),
@@ -78,5 +124,6 @@ export const uploadService = {
     type: "character" | "location",
     entityId?: string
   ) => uploadMediaImage(file, { type, entityId }),
-  // quizImage: (file: File) => uploadFile("quizImage", file), // temporarily disabled for image-sequence
+  quizImage: (file: File, options: QuizImageUploadOptions) =>
+    uploadQuizImage(file, options),
 };

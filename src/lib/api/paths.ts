@@ -38,5 +38,7 @@ export const paths = {
   quizzes: {
     root: "/quizzes",
     byId: (id: string) => `/quizzes/${id}`,
+    /** Same-origin BFF — presign + S3 PUT on server (avoids bucket CORS). */
+    imageUpload: "/quizzes/image/upload",
   },
 } as const;

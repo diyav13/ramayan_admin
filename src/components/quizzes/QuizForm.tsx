@@ -28,15 +28,9 @@ const TRUE_FALSE_OPTIONS = [
   { value: "false", label: "False" },
 ];
 
-/** While upload API is disabled, ignore local blob previews when saving. */
-function resolveImagesForSave(
-  images: string[],
-  existingImages: string[] | null | undefined
-): string[] {
-  const persisted = images.filter((url) => url && !url.startsWith("blob:"));
-  if (persisted.length > 0) return persisted;
-  if (existingImages && existingImages.length > 0) return existingImages;
-  return [];
+/** Ignore in-flight blob previews when saving. */
+function resolveImagesForSave(images: string[]): string[] {
+  return images.filter((url) => url && !url.startsWith("blob:"));
 }
 
 function toApiOrder(displayOrder: number): number {
@@ -62,8 +56,7 @@ function buildQuizPayload(
   type: QuizType,
   mcqOptions: string[],
   mcqAnswer: string,
-  images: string[],
-  existingImages: string[] | null | undefined
+  images: string[]
 ): CreateQuizInput | UpdateQuizInput {
   const base = {
     episodeId: readText(form, "episodeId"),
@@ -91,7 +84,7 @@ function buildQuizPayload(
     };
   }
 
-  const resolvedImages = resolveImagesForSave(images, existingImages);
+  const resolvedImages = resolveImagesForSave(images);
   return {
     ...base,
     images: resolvedImages,
@@ -139,6 +132,7 @@ export function QuizForm({
   const [images, setImages] = useState<string[]>(() =>
     imagesInCorrectOrder(quiz?.images, quiz?.answer)
   );
+  const [imageUploading, setImageUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const displayOrder = quiz ? quiz.orderIndex + 1 : defaultDisplayOrder;
@@ -222,13 +216,12 @@ export function QuizForm({
     }
 
     if (type === "IMAGE_SEQUENCE") {
-      const hasPersisted = images.some((url) => !url.startsWith("blob:"));
-      const hasExisting = (quiz?.images?.length ?? 0) > 0;
-      if (!hasPersisted && !hasExisting && images.length < 2) {
-        setFormError("Image sequence needs at least two images.");
+      if (imageUploading) {
+        setFormError("Please wait for image uploads to finish.");
         return;
       }
-      if (images.length < 2 && !hasExisting) {
+      const persisted = resolveImagesForSave(images);
+      if (persisted.length < 2) {
         setFormError("Image sequence needs at least two images.");
         return;
       }
@@ -240,8 +233,7 @@ export function QuizForm({
       type,
       mcqOptions,
       mcqAnswer,
-      images,
-      quiz?.images
+      images
     );
     await onSave(payload);
   }
@@ -310,7 +302,14 @@ export function QuizForm({
       )}
 
       {type === "IMAGE_SEQUENCE" && (
-        <QuizImageSequenceField images={images} onChange={setImages} />
+        <QuizImageSequenceField
+          images={images}
+          onChange={setImages}
+          chapterId={chapterId}
+          episodeId={episodeId}
+          questionId={quiz?.id}
+          onUploadingChange={setImageUploading}
+        />
       )}
 
       <Textarea
@@ -351,7 +350,7 @@ export function QuizForm({
               : "Save Changes"
         }
         onCancel={onCancel}
-        submitDisabled={saving}
+        submitDisabled={saving || imageUploading}
       />
     </form>
   );

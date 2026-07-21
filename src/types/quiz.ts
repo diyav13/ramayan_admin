@@ -80,3 +80,30 @@ export interface CreateQuizInput {
 }
 
 export type UpdateQuizInput = Partial<CreateQuizInput>;
+
+export interface QuizImageUploadUrlInput {
+  chapterId: string;
+  episodeId: string;
+  sequenceIndex: number;
+  fileName: string;
+  contentType: string;
+  /** Existing quiz activity id when editing. */
+  questionId?: string;
+  /** Reuse across pre-create uploads in the same draft session. */
+  draftId?: string;
+}
+
+export interface QuizImageUploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  draftId?: string;
+  headers?: Record<string, string>;
+}
+
+export interface QuizImageUploadOptions {
+  chapterId: string;
+  episodeId: string;
+  sequenceIndex: number;
+  questionId?: string;
+  draftId?: string;
+}
