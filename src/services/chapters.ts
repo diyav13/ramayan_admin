@@ -6,7 +6,7 @@ import type {
   UpdateChapterInput,
 } from "@/types/chapter";
 
-/** Chapter admin API — all routes require admin auth (Bearer token via api client). */
+/** Chapter admin API - routes require admin auth (Bearer token via api client). */
 export const chapterService = {
   getAllAdmin: () => api.get<Chapter[]>(paths.chapters.adminAll),
 
