@@ -21,7 +21,7 @@ export type MediaImageUploadOptions = {
   entityId?: string;
 };
 
-function resolveContentType(file: File): string {
+export function resolveContentType(file: File): string {
   if (file.type && ALLOWED_TYPES.has(file.type)) {
     return file.type;
   }
@@ -37,7 +37,7 @@ function resolveContentType(file: File): string {
   return byExt[ext ?? ""] ?? "application/octet-stream";
 }
 
-function buildS3UploadHeaders(
+export function buildS3UploadHeaders(
   presignHeaders: Record<string, string> | undefined,
   contentType: string
 ): Record<string, string> {

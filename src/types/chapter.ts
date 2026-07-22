@@ -16,7 +16,8 @@ export interface Chapter {
 export interface CreateChapterInput {
   title: string;
   description?: string;
-  thumbnailUrl?: string;
+  /** Set on create; send `null` on update to clear. */
+  thumbnailUrl?: string | null;
   orderIndex: number;
   isPremium?: boolean;
   isPublished?: boolean;
@@ -33,4 +34,19 @@ export interface ReorderChapterInput {
 
 export interface ReorderChaptersPayload {
   chapters: ReorderChapterInput[];
+}
+
+export interface ChapterThumbnailUploadUrlInput {
+  fileName: string;
+  contentType: string;
+  /** Omit for create (draft folder); pass when replacing an existing chapter thumbnail. */
+  entityId?: string;
+}
+
+export interface ChapterThumbnailUploadUrlResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  expiresIn: number;
+  headers?: Record<string, string>;
 }

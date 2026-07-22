@@ -19,14 +19,13 @@ import type {
   UpdateChapterInput,
 } from "@/types/chapter";
 
-/** While upload API is disabled, ignore local blob previews when saving. */
+/** Persist uploaded S3 URLs; allow clearing on update when user removes thumbnail. */
 function resolveThumbnailForSave(
   previewUrl: string,
   existingUrl: string | null | undefined
-): string | undefined {
-  if (!previewUrl) return undefined;
-  if (previewUrl.startsWith("blob:")) {
-    return existingUrl ? existingUrl : undefined;
+): string | undefined | null {
+  if (!previewUrl) {
+    return existingUrl ? null : undefined;
   }
   return optionalField(previewUrl);
 }
@@ -68,6 +67,7 @@ export function ChapterForm({
   onCancel: () => void;
 }) {
   const [thumbnailUrl, setThumbnailUrl] = useState(chapter?.thumbnailUrl ?? "");
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const displayOrder = chapter ? chapter.orderIndex + 1 : defaultDisplayOrder;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -128,13 +128,15 @@ export function ChapterForm({
       <ChapterThumbnailField
         value={thumbnailUrl}
         onChange={setThumbnailUrl}
+        chapterId={chapter?.id}
+        onUploadingChange={setThumbnailUploading}
       />
       <FormActions
         submitLabel={
           saving ? "Saving…" : creating ? "Create Chapter" : "Save Changes"
         }
         onCancel={onCancel}
-        submitDisabled={saving}
+        submitDisabled={saving || thumbnailUploading}
       />
     </form>
   );

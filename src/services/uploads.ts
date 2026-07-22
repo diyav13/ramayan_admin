@@ -74,6 +74,37 @@ async function uploadMediaImage(
 }
 
 /**
+ * Upload chapter thumbnail via same-origin BFF (presign + S3 PUT).
+ */
+async function uploadChapterThumbnail(
+  file: File,
+  chapterId?: string
+): Promise<string> {
+  const validationError = validateEpisodeThumbnailFile(file);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  if (chapterId) {
+    formData.append("chapterId", chapterId);
+  }
+
+  const result = await api.upload<MediaImageUploadResult>(
+    paths.chapters.thumbnailUpload,
+    formData
+  );
+
+  const publicUrl = result.publicUrl?.trim();
+  if (!publicUrl) {
+    throw new Error("Upload response missing publicUrl");
+  }
+
+  return publicUrl;
+}
+
+/**
  * Upload quiz image-sequence frame via same-origin BFF (presign + S3 PUT).
  */
 async function uploadQuizImage(
@@ -118,6 +149,8 @@ export const uploadService = {
   video: (file: File) => uploadFile("video", file),
   episodeThumbnail: (file: File, episodeId?: string) =>
     uploadMediaImage(file, { type: "episode", episodeId }),
+  chapterThumbnail: (file: File, chapterId?: string) =>
+    uploadChapterThumbnail(file, chapterId),
   /** Character or location portrait/landscape image. */
   entityImage: (
     file: File,
