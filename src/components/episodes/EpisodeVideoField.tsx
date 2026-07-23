@@ -48,6 +48,16 @@ function isHlsUrl(url: string): boolean {
   return /\.m3u8(\?|$)/i.test(url);
 }
 
+/** True when the browser can play this URL without an HLS.js-style player. */
+function canNativePlay(url: string): boolean {
+  if (!url.trim()) return false;
+  if (url.startsWith("blob:")) return true;
+  if (!isHlsUrl(url)) return true;
+  if (typeof document === "undefined") return false;
+  const probe = document.createElement("video");
+  return Boolean(probe.canPlayType("application/vnd.apple.mpegurl"));
+}
+
 function mapServerStatus(status: string | null | undefined): VideoUiStatus {
   switch (status) {
     case "INITIALIZING":
@@ -110,8 +120,13 @@ export function EpisodeVideoField({
     initialUploadStatus ?? null
   );
   const [outputHints, setOutputHints] = useState<string | null>(null);
+  const [statusThumbnailUrl, setStatusThumbnailUrl] = useState<string | null>(
+    null
+  );
+  const [statusFallbackUrl, setStatusFallbackUrl] = useState<string | null>(
+    null
+  );
 
-  const displayUrl = localPreview ?? value;
   const canUpload = Boolean(episodeId?.trim());
   /** Only active byte transfer locks the picker / shows the dense progress bar. */
   const showUploadProgress =
@@ -119,6 +134,25 @@ export function EpisodeVideoField({
     uiStatus === "INITIALIZING" ||
     uiStatus === "UPLOADING";
   const isProcessing = uiStatus === "PROCESSING" && !showUploadProgress;
+
+  const playableUrl = (() => {
+    if (localPreview) return localPreview;
+    const fallback = statusFallbackUrl?.trim();
+    if (fallback && canNativePlay(fallback)) return fallback;
+    const primary = value?.trim();
+    if (primary && canNativePlay(primary)) return primary;
+    return null;
+  })();
+
+  const hasVideoAsset =
+    Boolean(playableUrl) ||
+    Boolean(value?.trim()) ||
+    Boolean(statusThumbnailUrl) ||
+    isProcessing ||
+    uiStatus === "READY" ||
+    serverStatus === "READY" ||
+    serverStatus === "PROCESSING" ||
+    serverStatus === "UPLOADED";
 
   useEffect(() => {
     // PROCESSING must not disable Save — conversion can take a long time.
@@ -135,8 +169,16 @@ export function EpisodeVideoField({
     };
   }, []);
 
+  function applyStatusMedia(status: VideoStatusResponse) {
+    const thumb = status.thumbnailUrl?.trim() || null;
+    const fallback = status.fallbackVideoUrl?.trim() || null;
+    if (thumb) setStatusThumbnailUrl(thumb);
+    if (fallback) setStatusFallbackUrl(fallback);
+  }
+
   function applyTerminalStatus(status: VideoStatusResponse) {
     setServerStatus(status.status);
+    applyStatusMedia(status);
     if (status.ready || status.status === "READY") {
       const url = status.playbackUrl?.trim();
       if (url && url !== valueRef.current) onChange(url);
@@ -195,6 +237,7 @@ export function EpisodeVideoField({
 
       setServerStatus(status.status);
       setUiStatus(mapServerStatus(status.status));
+      applyStatusMedia(status);
 
       if (status.ready || status.status === "READY") {
         applyTerminalStatus(status);
@@ -256,10 +299,10 @@ export function EpisodeVideoField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episodeId]);
 
-  // Bind preview source. Native HLS works in Safari; other browsers may not play m3u8.
+  // Bind preview source only when the browser can play it natively.
   useEffect(() => {
     const video = videoRef.current;
-    const url = displayUrl;
+    const url = playableUrl;
     if (!video) return;
 
     if (!url) {
@@ -268,18 +311,8 @@ export function EpisodeVideoField({
       return;
     }
 
-    if (url.startsWith("blob:") || !isHlsUrl(url)) {
-      video.src = url;
-      return;
-    }
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = url;
-      return;
-    }
-
     video.src = url;
-  }, [displayUrl]);
+  }, [playableUrl]);
 
   function revokeLocalPreview() {
     if (objectUrlRef.current) {
@@ -296,6 +329,8 @@ export function EpisodeVideoField({
     statusAbortRef.current?.abort();
     setError(null);
     setOutputHints(null);
+    setStatusThumbnailUrl(null);
+    setStatusFallbackUrl(null);
     setIsPlaying(false);
 
     revokeLocalPreview();
@@ -409,6 +444,8 @@ export function EpisodeVideoField({
     revokeLocalPreview();
     setError(null);
     setOutputHints(null);
+    setStatusThumbnailUrl(null);
+    setStatusFallbackUrl(null);
     setUiStatus("IDLE");
     setServerStatus(null);
     onChange("");
@@ -421,7 +458,7 @@ export function EpisodeVideoField({
 
   async function handlePlay() {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !playableUrl) return;
 
     try {
       await video.play();
@@ -436,6 +473,9 @@ export function EpisodeVideoField({
       ? statusLabel("UPLOADING", Math.round(percent))
       : statusLabel(uiStatus);
 
+  const showPlayablePreview = Boolean(playableUrl);
+  const showVideoPlaceholder = hasVideoAsset && !showPlayablePreview;
+
   return (
     <Field label="Video" htmlFor={inputId}>
       <input
@@ -448,7 +488,7 @@ export function EpisodeVideoField({
         disabled={uploading || !canUpload}
       />
 
-      {displayUrl ? (
+      {showPlayablePreview ? (
         <div className="relative w-fit">
           <video
             ref={videoRef}
@@ -457,6 +497,7 @@ export function EpisodeVideoField({
             }`}
             playsInline
             preload="metadata"
+            poster={statusThumbnailUrl ?? undefined}
             controls={isPlaying && !showUploadProgress}
             onClick={() => {
               if (!showUploadProgress && !isPlaying) void handlePlay();
@@ -483,6 +524,44 @@ export function EpisodeVideoField({
             </button>
           ) : null}
 
+          {!showUploadProgress ? (
+            <button
+              type="button"
+              onClick={handleRemove}
+              aria-label="Remove video"
+              className="absolute -right-2 -top-2 z-10 flex size-6 items-center justify-center rounded-full border border-white/15 bg-[var(--surface)] text-[var(--text-muted)] outline-none transition hover:bg-red-500/20 hover:text-red-300"
+            >
+              <CrossIcon />
+            </button>
+          ) : null}
+        </div>
+      ) : showVideoPlaceholder ? (
+        <div className="relative w-fit">
+          <div
+            className={`${previewClass} relative flex items-center justify-center overflow-hidden`}
+            aria-label={
+              isProcessing
+                ? "Video processing"
+                : "Video attached — preview not available in this browser"
+            }
+          >
+            {statusThumbnailUrl ? (
+              <img
+                src={statusThumbnailUrl}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : null}
+            <div className="absolute inset-0 bg-black/40" />
+            <PlayIcon />
+            {showUploadProgress ? (
+              <div className="absolute inset-0 flex items-center justify-center rounded bg-black/45 px-1 text-center text-[10px] font-medium leading-tight text-white">
+                {uiStatus === "INITIALIZING"
+                  ? "Preparing…"
+                  : `${Math.round(percent)}%`}
+              </div>
+            ) : null}
+          </div>
           {!showUploadProgress ? (
             <button
               type="button"
@@ -571,6 +650,10 @@ export function EpisodeVideoField({
             </button>
           </div>
         </div>
+      ) : showVideoPlaceholder && value?.trim() && isHlsUrl(value) ? (
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+          Video is attached. Preview needs Safari or a fallback MP4.
+        </p>
       ) : (
         <p className="mt-1.5 text-xs text-[var(--text-muted)]">
           {canUpload
