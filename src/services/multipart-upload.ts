@@ -23,10 +23,11 @@ import {
  *   2. sign-part → fresh presigned URL shortly before each part PUT
  *   3. PUT parts → browser → S3 (concurrency 3, retries, ETag capture)
  *   4. complete  → CompleteMultipartUpload; S3 then triggers the FFmpeg Lambda
- *   5. poll status until READY / FAILED
+ *   5. return PROCESSING — UI checks status on form open / on demand (no poll loop)
  *
  * Chunk PUTs use XMLHttpRequest for upload.onprogress + ETag access
  * (S3 CORS must ExposeHeaders: ["ETag"]).
+ * Conversion can take many minutes; callers must not block the form on READY.
  */
 
 export type { VideoUiStatus };
@@ -70,6 +71,14 @@ export interface VideoStatusResponse {
   thumbnailUrl?: string | null;
   fallbackVideoUrl?: string | null;
   processingError?: string | null;
+  outputs?: {
+    hls: boolean;
+    thumbnail: boolean;
+    fallbackVideo: boolean;
+  };
+  processingStartedAt?: string | null;
+  processingTimeoutMs?: number;
+  suggestedPollIntervalMs?: number;
 }
 
 export interface UploadProgress {
@@ -98,8 +107,6 @@ export interface UploadVideoOptions {
   maxRetries?: number;
   signal?: AbortSignal;
   onProgress?: (progress: UploadProgress) => void;
-  /** Polling interval while PROCESSING (default 4000ms). */
-  pollIntervalMs?: number;
 }
 
 export class UploadAbortedError extends Error {
@@ -294,54 +301,9 @@ async function abortOnServer(
   }
 }
 
-async function pollUntilReady(
-  episodeId: string,
-  options: {
-    signal?: AbortSignal;
-    pollIntervalMs: number;
-    onProgress?: (progress: UploadProgress) => void;
-    totalBytes: number;
-  }
-): Promise<VideoStatusResponse> {
-  for (;;) {
-    if (options.signal?.aborted) throw new UploadAbortedError();
-
-    const status = await api.get<VideoStatusResponse>(
-      paths.episodes.videoStatus(episodeId)
-    );
-
-    if (status.ready || status.status === "READY") {
-      options.onProgress?.({
-        uploadedBytes: options.totalBytes,
-        totalBytes: options.totalBytes,
-        percent: 100,
-        uiStatus: "READY",
-      });
-      return status;
-    }
-
-    if (status.status === "FAILED" || status.status === "CANCELLED") {
-      const message =
-        status.processingError?.trim() ||
-        (status.status === "CANCELLED"
-          ? "Upload cancelled"
-          : "Video processing failed");
-      throw new Error(message);
-    }
-
-    options.onProgress?.({
-      uploadedBytes: options.totalBytes,
-      totalBytes: options.totalBytes,
-      percent: 100,
-      uiStatus: "PROCESSING",
-    });
-
-    await delay(options.pollIntervalMs, options.signal);
-  }
-}
-
 /**
- * Upload an episode MP4 via multipart, then poll until processing is READY.
+ * Upload an episode MP4 via multipart. Returns once S3 assembly succeeds
+ * (status PROCESSING). FFmpeg conversion is async — UI checks status on form open.
  */
 export async function uploadVideoMultipart(
   file: File,
@@ -354,7 +316,6 @@ export async function uploadVideoMultipart(
     maxRetries = MAX_RETRIES,
     signal,
     onProgress,
-    pollIntervalMs = 4000,
   } = options;
 
   if (!episodeId?.trim()) {
@@ -516,24 +477,12 @@ export async function uploadVideoMultipart(
       uiStatus: "PROCESSING",
     });
 
-    const ready = await pollUntilReady(episodeId, {
-      signal,
-      pollIntervalMs,
-      onProgress,
-      totalBytes,
-    });
-
-    const playbackUrl =
-      ready.playbackUrl?.trim() ||
-      undefined;
-
+    // Do not wait for READY — conversion can take a long time and must not
+    // lock the episode form or spin status requests forever in this call.
     return {
       sourceKey: init.sourceKey,
-      videoUrl: playbackUrl || init.sourceKey,
-      playbackUrl,
-      thumbnailUrl: ready.thumbnailUrl?.trim() || undefined,
-      fallbackVideoUrl: ready.fallbackVideoUrl?.trim() || undefined,
-      status: ready.status,
+      videoUrl: "",
+      status: "PROCESSING",
     };
   } catch (error) {
     if (isUploadAborted(error) || signal?.aborted) {

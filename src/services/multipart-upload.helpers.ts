@@ -79,9 +79,9 @@ export function statusLabel(
     case "UPLOADING":
       return `Uploading video — ${percent ?? 0}%`;
     case "PROCESSING":
-      return "Upload complete. Preparing adaptive streaming versions…";
+      return "Upload complete. Converting on the server — reopen edit or tap Check status when ready.";
     case "READY":
-      return "Video is ready.";
+      return "";
     case "FAILED":
       return "Video upload failed.";
     case "CANCELLED":
