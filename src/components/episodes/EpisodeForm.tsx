@@ -200,6 +200,7 @@ export function EpisodeForm({
           value={videoUrl}
           onChange={setVideoUrl}
           episodeId={episode?.id}
+          initialUploadStatus={episode?.videoUploadStatus}
           onUploadingChange={setVideoUploading}
         />
       </div>

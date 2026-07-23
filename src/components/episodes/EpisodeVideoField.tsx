@@ -2,10 +2,13 @@
 
 import { ChangeEvent, useEffect, useId, useRef, useState } from "react";
 import { Field } from "@/components/ui/Field";
+import { api } from "@/lib/api";
+import { paths } from "@/lib/api/paths";
 import { getErrorMessage } from "@/lib/api/errors";
 import { uploadService } from "@/services/uploads";
 import {
   isUploadAborted,
+  type VideoStatusResponse,
   type VideoUiStatus,
 } from "@/services/multipart-upload";
 import {
@@ -18,6 +21,8 @@ type EpisodeVideoFieldProps = {
   onChange: (url: string) => void;
   /** Required for multipart upload — save the episode first when creating. */
   episodeId?: string;
+  /** Optional seed from episode detail (avoids a flash before status fetch). */
+  initialUploadStatus?: string | null;
   onUploadingChange?: (uploading: boolean) => void;
 };
 
@@ -26,6 +31,7 @@ const previewClass =
 
 /** Matches backend VIDEO_MAX_UPLOAD_SIZE_MB default (1024). */
 const MAX_BYTES = 1024 * 1024 * 1024;
+const STATUS_POLL_MS = 4000;
 
 const REPLACE_MESSAGE =
   "Replacing this video will upload a new source file and start processing again. Existing processed playback may remain available until the new video is ready.";
@@ -46,21 +52,38 @@ function isHlsUrl(url: string): boolean {
   return /\.m3u8(\?|$)/i.test(url);
 }
 
+function mapServerStatus(status: string | null | undefined): VideoUiStatus {
+  switch (status) {
+    case "INITIALIZING":
+      return "INITIALIZING";
+    case "UPLOADING":
+    case "UPLOADED":
+      return "UPLOADING";
+    case "PROCESSING":
+      return "PROCESSING";
+    case "READY":
+      return "READY";
+    case "FAILED":
+      return "FAILED";
+    case "CANCELLED":
+      return "CANCELLED";
+    default:
+      return "IDLE";
+  }
+}
+
 /**
  * Episode video picker — resilient direct-to-S3 multipart upload.
  *
  * Requires a saved episodeId. Parent receives the CloudFront HLS URL only after
  * processing reaches READY. Local object URLs are used for in-browser preview
  * of the selected source file during upload.
- *
- * HLS preview uses native playback where supported (Safari/iOS). Other browsers
- * may not preview `.m3u8` in-admin; the mobile app player remains the primary
- * playback surface. Install `hls.js` later if admin Chrome preview is required.
  */
 export function EpisodeVideoField({
   value,
   onChange,
   episodeId,
+  initialUploadStatus,
   onUploadingChange,
 }: EpisodeVideoFieldProps) {
   const inputId = useId();
@@ -69,6 +92,7 @@ export function EpisodeVideoField({
   const objectUrlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const uploadingLockRef = useRef(false);
+  const pollAbortRef = useRef<AbortController | null>(null);
 
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,23 +101,141 @@ export function EpisodeVideoField({
   const [percent, setPercent] = useState(0);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
-  const [uiStatus, setUiStatus] = useState<VideoUiStatus>("IDLE");
+  const [uiStatus, setUiStatus] = useState<VideoUiStatus>(() =>
+    mapServerStatus(initialUploadStatus)
+  );
+  const [serverStatus, setServerStatus] = useState<string | null>(
+    initialUploadStatus ?? null
+  );
 
   const displayUrl = localPreview ?? value;
   const canUpload = Boolean(episodeId?.trim());
+  const showProgress =
+    uploading ||
+    uiStatus === "PROCESSING" ||
+    uiStatus === "INITIALIZING" ||
+    uiStatus === "UPLOADING";
 
   useEffect(() => {
-    onUploadingChange?.(uploading);
-  }, [uploading, onUploadingChange]);
+    onUploadingChange?.(uploading || uiStatus === "PROCESSING");
+  }, [uploading, uiStatus, onUploadingChange]);
 
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      pollAbortRef.current?.abort();
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current);
       }
     };
   }, []);
+
+  // Hydrate / resume from server status when editing an episode.
+  useEffect(() => {
+    if (!episodeId?.trim() || uploadingLockRef.current) return;
+
+    let cancelled = false;
+    pollAbortRef.current?.abort();
+    const controller = new AbortController();
+    pollAbortRef.current = controller;
+
+    async function hydrate() {
+      try {
+        const status = await api.get<VideoStatusResponse>(
+          paths.episodes.videoStatus(episodeId!)
+        );
+        if (cancelled || controller.signal.aborted) return;
+
+        setServerStatus(status.status);
+        const mapped = mapServerStatus(status.status);
+        setUiStatus(mapped);
+
+        if (status.ready || status.status === "READY") {
+          const url = status.playbackUrl?.trim();
+          if (url && url !== value) onChange(url);
+          setError(null);
+          return;
+        }
+
+        if (status.status === "FAILED") {
+          setError(
+            status.processingError?.trim() ||
+              "Previous video upload/processing failed. Retry with a new MP4."
+          );
+          return;
+        }
+
+        if (
+          status.status === "UPLOADING" ||
+          status.status === "INITIALIZING" ||
+          status.status === "UPLOADED"
+        ) {
+          setError(
+            "A previous upload was interrupted. Choose the MP4 again to resume with a fresh upload."
+          );
+          return;
+        }
+
+        if (status.status === "PROCESSING") {
+          setError(null);
+          setUploading(true);
+          setPercent(100);
+          setUiStatus("PROCESSING");
+          await pollProcessing(controller.signal);
+        }
+      } catch {
+        // Non-fatal — form still works for a fresh pick.
+      }
+    }
+
+    async function pollProcessing(signal: AbortSignal) {
+      while (!signal.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_MS));
+        if (signal.aborted) return;
+        try {
+          const status = await api.get<VideoStatusResponse>(
+            paths.episodes.videoStatus(episodeId!)
+          );
+          if (signal.aborted) return;
+          setServerStatus(status.status);
+
+          if (status.ready || status.status === "READY") {
+            const url = status.playbackUrl?.trim();
+            if (url) onChange(url);
+            setUiStatus("READY");
+            setUploading(false);
+            setError(null);
+            return;
+          }
+
+          if (status.status === "FAILED") {
+            setUiStatus("FAILED");
+            setUploading(false);
+            setError(
+              status.processingError?.trim() || "Video processing failed"
+            );
+            return;
+          }
+
+          setUiStatus("PROCESSING");
+        } catch (err) {
+          if (signal.aborted) return;
+          setUploading(false);
+          setUiStatus("FAILED");
+          setError(getErrorMessage(err, "Failed to check video status"));
+          return;
+        }
+      }
+    }
+
+    void hydrate();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+    // Only re-hydrate when the episode changes — not on every value update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [episodeId]);
 
   // Bind preview source. Native HLS works in Safari; other browsers may not play m3u8.
   useEffect(() => {
@@ -117,7 +259,6 @@ export function EpisodeVideoField({
       return;
     }
 
-    // Keep the master playlist URL as the stored value; preview may be limited.
     video.src = url;
   }, [displayUrl]);
 
@@ -129,10 +270,11 @@ export function EpisodeVideoField({
     setLocalPreview(null);
   }
 
-  async function startUpload(file: File, replace: boolean) {
+  async function startUpload(file: File) {
     if (!episodeId?.trim() || uploadingLockRef.current) return;
 
     uploadingLockRef.current = true;
+    pollAbortRef.current?.abort();
     setError(null);
     setIsPlaying(false);
 
@@ -153,7 +295,7 @@ export function EpisodeVideoField({
     try {
       const result = await uploadService.videoMultipart(file, {
         episodeId,
-        replace,
+        replace: true,
         signal: controller.signal,
         onProgress: ({
           percent: pct,
@@ -169,13 +311,17 @@ export function EpisodeVideoField({
       });
       revokeLocalPreview();
       onChange(result.videoUrl);
+      setServerStatus("READY");
       setUiStatus("READY");
+      setPercent(100);
     } catch (err) {
       if (isUploadAborted(err)) {
         setUiStatus("CANCELLED");
+        setServerStatus("CANCELLED");
         revokeLocalPreview();
       } else {
         setUiStatus("FAILED");
+        setServerStatus("FAILED");
         setError(getErrorMessage(err, "Video upload failed"));
         revokeLocalPreview();
       }
@@ -207,12 +353,20 @@ export function EpisodeVideoField({
       return;
     }
 
-    const replacing = Boolean(value?.trim());
-    if (replacing && !window.confirm(REPLACE_MESSAGE)) {
+    const hasExistingPlayback = Boolean(value?.trim());
+    const hasServerWork =
+      serverStatus === "READY" ||
+      serverStatus === "PROCESSING" ||
+      serverStatus === "UPLOADING" ||
+      serverStatus === "INITIALIZING" ||
+      serverStatus === "UPLOADED" ||
+      uiStatus === "FAILED";
+
+    if ((hasExistingPlayback || hasServerWork) && !window.confirm(REPLACE_MESSAGE)) {
       return;
     }
 
-    await startUpload(file, replacing);
+    await startUpload(file);
   }
 
   function handleCancel() {
@@ -220,17 +374,18 @@ export function EpisodeVideoField({
   }
 
   function handleRemove() {
-    if (uploading) return;
+    if (uploading || uiStatus === "PROCESSING") return;
     videoRef.current?.pause();
     setIsPlaying(false);
     revokeLocalPreview();
     setError(null);
     setUiStatus("IDLE");
+    setServerStatus(null);
     onChange("");
   }
 
   function openPicker() {
-    if (uploading || !canUpload) return;
+    if (uploading || uiStatus === "PROCESSING" || !canUpload) return;
     inputRef.current?.click();
   }
 
@@ -260,7 +415,7 @@ export function EpisodeVideoField({
         accept="video/mp4"
         className="sr-only"
         onChange={(event) => void handleFileChange(event)}
-        disabled={uploading || !canUpload}
+        disabled={uploading || uiStatus === "PROCESSING" || !canUpload}
       />
 
       {displayUrl ? (
@@ -268,23 +423,25 @@ export function EpisodeVideoField({
           <video
             ref={videoRef}
             className={`${previewClass} ${
-              uploading ? "opacity-60" : isPlaying ? "" : "cursor-pointer"
+              showProgress ? "opacity-60" : isPlaying ? "" : "cursor-pointer"
             }`}
             playsInline
             preload="metadata"
-            controls={isPlaying && !uploading}
+            controls={isPlaying && !showProgress}
             onClick={() => {
-              if (!uploading && !isPlaying) void handlePlay();
+              if (!showProgress && !isPlaying) void handlePlay();
             }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}
           />
 
-          {uploading ? (
+          {showProgress ? (
             <div className="absolute inset-0 flex items-center justify-center rounded bg-black/45 px-1 text-center text-[10px] font-medium leading-tight text-white">
-              {uiStatus === "PROCESSING"
-                ? "Processing…"
+              {uiStatus === "PROCESSING" || uiStatus === "INITIALIZING"
+                ? uiStatus === "PROCESSING"
+                  ? "Processing…"
+                  : "Preparing…"
                 : `${Math.round(percent)}%`}
             </div>
           ) : !isPlaying ? (
@@ -298,7 +455,7 @@ export function EpisodeVideoField({
             </button>
           ) : null}
 
-          {!uploading ? (
+          {!showProgress ? (
             <button
               type="button"
               onClick={handleRemove}
@@ -313,7 +470,7 @@ export function EpisodeVideoField({
         <button
           type="button"
           onClick={openPicker}
-          disabled={uploading || !canUpload}
+          disabled={uploading || uiStatus === "PROCESSING" || !canUpload}
           className="flex h-24 w-36 flex-col items-center justify-center gap-1.5 rounded border border-dashed border-white/15 bg-[var(--surface)] text-center outline-none transition hover:border-white/25 hover:bg-white/5 focus-visible:ring-1 focus-visible:ring-[var(--gold)] disabled:opacity-60"
         >
           <VideoIcon />
@@ -323,19 +480,27 @@ export function EpisodeVideoField({
         </button>
       )}
 
-      {uploading ? (
+      {showProgress ? (
         <div className="mt-2 w-full max-w-sm">
           <div
             className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
             role="progressbar"
-            aria-valuenow={Math.round(percent)}
+            aria-valuenow={
+              uiStatus === "PROCESSING" || uiStatus === "INITIALIZING"
+                ? 100
+                : Math.round(percent)
+            }
             aria-valuemin={0}
             aria-valuemax={100}
           >
             <div
               className="h-full rounded-full bg-[var(--gold)] transition-[width] duration-200 ease-out"
               style={{
-                width: `${uiStatus === "PROCESSING" ? 100 : percent}%`,
+                width: `${
+                  uiStatus === "PROCESSING" || uiStatus === "INITIALIZING"
+                    ? 100
+                    : percent
+                }%`,
               }}
             />
           </div>
@@ -343,7 +508,9 @@ export function EpisodeVideoField({
             <span>
               {uiStatus === "PROCESSING" || uiStatus === "INITIALIZING"
                 ? progressText
-                : `${formatBytes(uploadedBytes)} / ${formatBytes(totalBytes)}`}
+                : totalBytes > 0
+                  ? `${formatBytes(uploadedBytes)} / ${formatBytes(totalBytes)}`
+                  : progressText}
             </span>
             {uiStatus === "UPLOADING" || uiStatus === "INITIALIZING" ? (
               <button
@@ -367,11 +534,11 @@ export function EpisodeVideoField({
         </p>
       )}
 
-      {uiStatus === "READY" && !uploading && value ? (
+      {uiStatus === "READY" && !showProgress && value ? (
         <p className="mt-1 text-xs text-emerald-400/90">{statusLabel("READY")}</p>
       ) : null}
 
-      {uiStatus === "FAILED" && !uploading ? (
+      {(uiStatus === "FAILED" || uiStatus === "CANCELLED") && !showProgress ? (
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <button
             type="button"

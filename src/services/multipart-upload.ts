@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { ApiError } from "@/lib/api/errors";
 import { paths } from "@/lib/api/paths";
 import {
   aggregateProgressPercent,
@@ -348,7 +349,7 @@ export async function uploadVideoMultipart(
 ): Promise<VideoUploadResult> {
   const {
     episodeId,
-    replace = false,
+    replace: _replace = false,
     concurrency = CONCURRENCY,
     maxRetries = MAX_RETRIES,
     signal,
@@ -371,15 +372,30 @@ export async function uploadVideoMultipart(
     uiStatus: "INITIALIZING",
   });
 
-  const init = await api.post<MultipartInitiateResponse>(
-    paths.episodes.videoMultipart.initiate(episodeId),
-    {
-      filename: file.name,
-      contentType: "video/mp4",
-      fileSize: file.size,
-      replace,
-    }
-  );
+  // Selecting a file always means start/replace this episode's source upload.
+  const initiateBody = {
+    filename: file.name,
+    contentType: "video/mp4" as const,
+    fileSize: file.size,
+    replace: true,
+  };
+
+  let init: MultipartInitiateResponse;
+  try {
+    init = await api.post<MultipartInitiateResponse>(
+      paths.episodes.videoMultipart.initiate(episodeId),
+      initiateBody
+    );
+  } catch (error) {
+    const isConflict = error instanceof ApiError && error.status === 409;
+    if (!isConflict) throw error;
+
+    // Safety net for race / older servers — force replace again.
+    init = await api.post<MultipartInitiateResponse>(
+      paths.episodes.videoMultipart.initiate(episodeId),
+      { ...initiateBody, replace: true }
+    );
+  }
 
   if (!init?.uploadId || !init?.sourceKey) {
     throw new Error("Initiate response missing uploadId or sourceKey");
