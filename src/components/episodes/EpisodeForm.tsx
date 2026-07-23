@@ -33,7 +33,10 @@ function resolveThumbnailForSave(
   return optionalField(previewUrl);
 }
 
-/** While video upload API is disabled, ignore local blob previews when saving. */
+/**
+ * Persist the uploaded S3 asset URL. Guard against blob: previews leaking in —
+ * the field only emits a real URL after the multipart upload completes.
+ */
 function resolveMediaForSave(
   previewUrl: string,
   existingUrl: string | null | undefined
@@ -96,6 +99,7 @@ export function EpisodeForm({
   const [thumbnailUrl, setThumbnailUrl] = useState(episode?.thumbnailUrl ?? "");
   const [videoUrl, setVideoUrl] = useState(episode?.videoUrl ?? "");
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
   const [characterIds, setCharacterIds] = useState<string[]>(
     episode?.characterIds ?? episode?.characters?.map((item) => item.id) ?? []
   );
@@ -192,7 +196,12 @@ export function EpisodeForm({
           episodeId={episode?.id}
           onUploadingChange={setThumbnailUploading}
         />
-        <EpisodeVideoField value={videoUrl} onChange={setVideoUrl} />
+        <EpisodeVideoField
+          value={videoUrl}
+          onChange={setVideoUrl}
+          episodeId={episode?.id}
+          onUploadingChange={setVideoUploading}
+        />
       </div>
 
       <FormActions
@@ -200,7 +209,7 @@ export function EpisodeForm({
           saving ? "Saving…" : creating ? "Create Episode" : "Save Changes"
         }
         onCancel={onCancel}
-        submitDisabled={saving || thumbnailUploading}
+        submitDisabled={saving || thumbnailUploading || videoUploading}
       />
     </form>
   );

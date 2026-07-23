@@ -22,6 +22,16 @@ export interface Episode {
   durationSeconds: number | null;
   isPublished: boolean;
   accentColor: string | null;
+  videoUploadStatus?:
+    | "DRAFT"
+    | "INITIALIZING"
+    | "UPLOADING"
+    | "UPLOADED"
+    | "PROCESSING"
+    | "READY"
+    | "FAILED"
+    | "CANCELLED";
+  processingError?: string | null;
   characterIds?: string[];
   locationIds?: string[];
   characters?: EpisodeEntityRef[];

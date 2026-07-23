@@ -17,6 +17,18 @@ export const paths = {
     thumbnailUploadUrl: "/episodes/thumbnail/upload-url",
     /** Same-origin BFF — presign + S3 PUT on server (avoids bucket CORS). */
     thumbnailUpload: "/episodes/thumbnail/upload",
+    /** Episode-scoped multipart video lifecycle (browser → S3 directly for parts). */
+    videoMultipart: {
+      initiate: (episodeId: string) =>
+        `/episodes/${episodeId}/video/multipart/initiate`,
+      signPart: (episodeId: string) =>
+        `/episodes/${episodeId}/video/multipart/sign-part`,
+      complete: (episodeId: string) =>
+        `/episodes/${episodeId}/video/multipart/complete`,
+      abort: (episodeId: string) =>
+        `/episodes/${episodeId}/video/multipart/abort`,
+    },
+    videoStatus: (episodeId: string) => `/episodes/${episodeId}/video/status`,
   },
   uploads: {
     thumbnail: "/uploads/thumbnail",

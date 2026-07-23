@@ -4,6 +4,11 @@ import {
   validateEpisodeThumbnailFile,
   type MediaImageUploadType,
 } from "@/lib/api/episode-thumbnail-upload";
+import {
+  uploadVideoMultipart,
+  type UploadVideoOptions,
+  type VideoUploadResult,
+} from "@/services/multipart-upload";
 import type { QuizImageUploadOptions } from "@/types/quiz";
 
 type UploadKind = "thumbnail" | "video";
@@ -147,6 +152,15 @@ async function uploadQuizImage(
 export const uploadService = {
   thumbnail: (file: File) => uploadFile("thumbnail", file),
   video: (file: File) => uploadFile("video", file),
+  /**
+   * Resilient direct-to-S3 multipart episode video upload (chunked, concurrent, retried).
+   * Bytes go browser → S3; only initiate/sign-part/complete/abort/status hit our backend.
+   * Requires a saved episodeId so season/episode codes are derived server-side.
+   */
+  videoMultipart: (
+    file: File,
+    options: UploadVideoOptions
+  ): Promise<VideoUploadResult> => uploadVideoMultipart(file, options),
   episodeThumbnail: (file: File, episodeId?: string) =>
     uploadMediaImage(file, { type: "episode", episodeId }),
   chapterThumbnail: (file: File, chapterId?: string) =>
