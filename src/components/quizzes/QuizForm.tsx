@@ -2,11 +2,13 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { FormActions } from "@/components/FormActions";
+import { ChapterSelectField } from "@/components/chapters/ChapterSelectField";
+import type { ChapterSelectOption } from "@/components/chapters/ChapterSelectField";
 import { QuizImageSequenceField } from "@/components/quizzes/QuizImageSequenceField";
 import { QuizMcqOptionsField } from "@/components/quizzes/QuizMcqOptionsField";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { DarkSelectField } from "@/components/ui/DarkSelectField";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import {
   quizItemsForForm,
@@ -103,7 +105,7 @@ export function QuizForm({
   onCancel,
 }: {
   quiz: Quiz | null;
-  chapterOptions: { value: string; label: string }[];
+  chapterOptions: ChapterSelectOption[];
   episodeOptions: { value: string; label: string }[];
   episodesLoading?: boolean;
   saving: boolean;
@@ -135,20 +137,15 @@ export function QuizForm({
   const displayOrder = quiz ? quiz.orderIndex + 1 : defaultDisplayOrder;
   const didInitChapterRef = useRef(false);
 
-  const chapterSelectOptions = [
-    { value: "", label: "Select chapter" },
-    ...chapterOptions,
-  ];
+  const chapterSelectOptions = chapterOptions;
 
-  const episodeSelectOptions = episodesLoading
-    ? [{ value: "", label: "Loading episodes…" }]
-    : [
-        {
-          value: "",
-          label: chapterId ? "Select episode" : "Select chapter first",
-        },
-        ...episodeOptions,
-      ];
+  const episodeSelectOptions = episodesLoading ? [] : episodeOptions;
+
+  const episodePlaceholder = episodesLoading
+    ? "Loading episodes…"
+    : chapterId
+      ? "Select episode"
+      : "Select chapter first";
 
   useEffect(() => {
     if (didInitChapterRef.current) return;
@@ -241,31 +238,32 @@ export function QuizForm({
       className="w-full max-w-3xl space-y-4 text-left"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Select
+        <ChapterSelectField
           label="Chapter"
           name="chapterId"
           options={chapterSelectOptions}
           value={chapterId}
-          onChange={(e) => handleChapterChange(e.target.value)}
+          onChange={handleChapterChange}
           required
         />
-        <Select
+        <DarkSelectField
           label="Episode"
           name="episodeId"
           options={episodeSelectOptions}
           value={episodeId}
-          onChange={(e) => setEpisodeId(e.target.value)}
+          onChange={setEpisodeId}
+          placeholder={episodePlaceholder}
           required
           disabled={!chapterId || episodesLoading}
         />
       </div>
 
-      <Select
+      <DarkSelectField
         label="Question type"
         name="type"
         options={[...QUIZ_TYPE_OPTIONS]}
         value={type}
-        onChange={(e) => setType(e.target.value as QuizType)}
+        onChange={(nextType) => setType(nextType as QuizType)}
         required
       />
 
@@ -279,7 +277,7 @@ export function QuizForm({
 
       {type === "TRUE_FALSE" && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select
+          <DarkSelectField
             label="Correct answer"
             name="answer"
             options={TRUE_FALSE_OPTIONS}

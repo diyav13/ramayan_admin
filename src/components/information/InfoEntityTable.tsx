@@ -2,7 +2,6 @@
 
 import { DataTable } from "@/components/DataTable";
 import { RowActions } from "@/components/RowActions";
-import { formatDate } from "@/lib/utils";
 
 export type InfoListItem = {
   id: string;
@@ -27,7 +26,6 @@ type InfoEntityTableProps = {
 const columns = [
   { label: "Name" },
   { label: "Description" },
-  { label: "Updated" },
   { label: "Actions", align: "right" as const },
 ];
 
@@ -67,9 +65,6 @@ export function InfoEntityTable({
             <p className="line-clamp-2 text-sm text-[var(--text-muted)]">
               {item.description ?? "—"}
             </p>
-          </td>
-          <td className="px-4 py-3.5 text-[var(--text-muted)]">
-            {formatDate(item.updatedAt)}
           </td>
           <td className="px-4 py-3.5">
             <RowActions

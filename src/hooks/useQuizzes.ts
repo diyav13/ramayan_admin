@@ -26,14 +26,17 @@ import type {
   UpdateQuizInput,
 } from "@/types/quiz";
 
-export function useQuizzes() {
+export function useQuizzes(
+  initialChapterId = "",
+  initialEpisodeId = ""
+) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [episodes, setEpisodes] = useState<EpisodeListItem[]>([]);
   const [formEpisodes, setFormEpisodes] = useState<EpisodeListItem[]>([]);
   const [items, setItems] = useState<QuizListItem[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
-  const [chapterId, setChapterId] = useState("");
-  const [episodeId, setEpisodeId] = useState("");
+  const [chapterId, setChapterId] = useState(initialChapterId);
+  const [episodeId, setEpisodeId] = useState(initialEpisodeId);
   const [typeFilter, setTypeFilter] = useState<QuizType | "">("");
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
@@ -136,6 +139,11 @@ export function useQuizzes() {
   ]);
 
   useEffect(() => {
+    setChapterId(initialChapterId);
+    setEpisodeId(initialEpisodeId);
+  }, [initialChapterId, initialEpisodeId]);
+
+  useEffect(() => {
     void load();
   }, [load]);
 
@@ -145,8 +153,12 @@ export function useQuizzes() {
 
   useEffect(() => {
     void loadEpisodesForChapter(chapterId, "filter");
-    setEpisodeId("");
   }, [chapterId, loadEpisodesForChapter]);
+
+  const setChapterFilter = useCallback((id: string) => {
+    setChapterId(id);
+    setEpisodeId("");
+  }, []);
 
   const loadFormEpisodes = useCallback(
     async (selectedChapterId: string) => {
@@ -247,7 +259,7 @@ export function useQuizzes() {
     totalCount,
     pageRange,
     chapterId,
-    setChapterId,
+    setChapterId: setChapterFilter,
     episodeId,
     setEpisodeId,
     typeFilter,

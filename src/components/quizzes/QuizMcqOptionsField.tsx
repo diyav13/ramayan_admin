@@ -39,7 +39,11 @@ export function QuizMcqOptionsField({
   }
 
   return (
-    <Field label="Options" htmlFor="mcq-option-0">
+    <Field
+      label="Options"
+      htmlFor="mcq-option-0"
+      description="Select the right answer"
+    >
       <div className="space-y-2">
         {options.map((option, index) => {
           const letter = String.fromCharCode(65 + index);

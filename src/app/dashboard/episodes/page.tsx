@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { RowActions } from "@/components/RowActions";
 import { DataTable } from "@/components/DataTable";
@@ -14,6 +15,7 @@ import { Pagination } from "@/components/Pagination";
 import { useEpisodes } from "@/hooks/useEpisodes";
 import {
   resolveEpisodeChapterAccentColor,
+  resolveEpisodeChapterEpisodeCount,
   resolveEpisodeChapterTitle,
 } from "@/lib/episodes";
 import { pluralize } from "@/lib/utils";
@@ -31,7 +33,56 @@ const columns = [
   { label: "Actions", align: "right" as const },
 ];
 
+const episodeThumbClass =
+  "h-10 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10";
+
+function EpisodeThumb({
+  title,
+  thumbnailUrl,
+}: {
+  title: string;
+  thumbnailUrl: string | null;
+}) {
+  if (thumbnailUrl) {
+    return (
+      <img src={thumbnailUrl} alt={title} className={episodeThumbClass} />
+    );
+  }
+
+  const initial = title.trim().charAt(0).toUpperCase() || "?";
+
+  return (
+    <div
+      className={`flex items-center justify-center bg-[var(--surface)] text-sm font-bold text-[var(--gold)] ${episodeThumbClass}`}
+      aria-hidden
+    >
+      {initial}
+    </div>
+  );
+}
+
+function EpisodeIndexLabel({
+  index,
+  total,
+}: {
+  index: number;
+  total: number | null;
+}) {
+  return (
+    <span className="whitespace-nowrap">
+      <span className="text-lg font-bold text-white">{index}</span>
+      {total != null ? (
+        <span className="text-xs text-[var(--text-muted)]"> of {total}</span>
+      ) : null}
+    </span>
+  );
+}
+
 export default function EpisodesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlChapterId = searchParams.get("chapterId") ?? "";
+
   const {
     chapters,
     characters,
@@ -64,11 +115,15 @@ export default function EpisodesPage() {
     deleteEpisode,
     askDelete,
     cancelDelete,
-  } = useEpisodes();
+  } = useEpisodes(urlChapterId);
 
   const chapterOptions = [...chapters]
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((chapter) => ({ value: chapter.id, label: chapter.title }));
+    .map((chapter) => ({
+      value: chapter.id,
+      label: chapter.title,
+      accentColor: chapter.accentColor,
+    }));
 
   const characterOptions = characters.map((character) => ({
     value: character.id,
@@ -82,7 +137,13 @@ export default function EpisodesPage() {
 
   const chapterFilterOptions = [
     { value: "", label: "All chapters" },
-    ...chapterOptions,
+    ...[...chapters]
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((chapter) => ({
+        value: chapter.id,
+        label: chapter.title,
+        accentColor: chapter.accentColor,
+      })),
   ];
 
   const activeFilterChapterId = chapterId || undefined;
@@ -107,12 +168,9 @@ export default function EpisodesPage() {
     const episode = editingItem;
     return (
       <EditView
-        title={creating ? "Add Episode" : "Edit Episode"}
-        subtitle={
-          creating
-            ? "Create a new episode"
-            : `Editing ${episode?.title ?? "episode"}`
-        }
+        title={creating ? "Add Episode" : episode?.title ?? "Episode"}
+        subtitle={creating ? "Create a new episode" : "Edit Episode"}
+        onBack={closeEditor}
       >
         {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
         <EpisodeForm
@@ -178,21 +236,33 @@ export default function EpisodesPage() {
                 chapters,
                 activeFilterChapterId
               );
+              const chapterEpisodeCount = resolveEpisodeChapterEpisodeCount(
+                episode,
+                chapters,
+                activeFilterChapterId,
+                items
+              );
+              const episodeIndex = episode.orderIndex + 1;
 
               return (
                 <tr
                   key={episode.id}
                   className="border-b border-white/5 last:border-0 transition hover:bg-white/[0.03]"
+                  style={{
+                    borderLeft: `2px solid ${chapterColor}`,
+                  }}
                 >
-                  <td className="px-4 py-3.5 align-top text-[var(--text-muted)]">
-                    {episode.orderIndex + 1}
+                  <td className="px-4 py-3.5 align-top">
+                    <EpisodeIndexLabel
+                      index={episodeIndex}
+                      total={chapterEpisodeCount}
+                    />
                   </td>
                   <td className="px-4 py-3.5 align-top">
                     <div className="flex min-w-0 items-start gap-3">
-                      <span
-                        className="mt-1 h-9 w-0.5 shrink-0 rounded-full opacity-90"
-                        style={{ backgroundColor: chapterColor }}
-                        aria-hidden
+                      <EpisodeThumb
+                        title={episode.title}
+                        thumbnailUrl={episode.thumbnailUrl}
                       />
                       <div className="min-w-0">
                         <p className="truncate font-serif text-[15px] capitalize text-white">
@@ -227,6 +297,17 @@ export default function EpisodesPage() {
                   <td className="px-4 py-3.5 align-top">
                     <RowActions
                       confirming={confirmDeleteId === episode.id}
+                      onQuizzes={() => {
+                        const episodeChapterId =
+                          episode.chapterId ??
+                          episode.chapter?.id ??
+                          chapterId;
+                        const params = new URLSearchParams({
+                          chapterId: episodeChapterId,
+                          episodeId: episode.id,
+                        });
+                        router.push(`/dashboard/quizzes?${params.toString()}`);
+                      }}
                       onEdit={() => void startEdit(episode.id)}
                       onAskDelete={() => askDelete(episode.id)}
                       onCancelDelete={cancelDelete}

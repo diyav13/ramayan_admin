@@ -43,6 +43,27 @@ export function resolveEpisodeChapterAccentColor(
   );
 }
 
+/** Total episodes in the episode's chapter (for "2 of 5" list labels). */
+export function resolveEpisodeChapterEpisodeCount(
+  episode: EpisodeListItem,
+  chapters: Chapter[],
+  filterChapterId?: string,
+  visibleItems?: EpisodeListItem[]
+): number | null {
+  const chapterId = resolveEpisodeChapterId(episode, filterChapterId);
+  const chapter = chapters.find((item) => item.id === chapterId);
+
+  if (chapter?._count?.episodes != null) {
+    return chapter._count.episodes;
+  }
+
+  if (filterChapterId && visibleItems) {
+    return visibleItems.length;
+  }
+
+  return null;
+}
+
 function formatEntityNames(
   entities: EpisodeEntityRef[] | undefined,
   ids: string[] | undefined,

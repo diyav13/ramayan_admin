@@ -262,7 +262,11 @@ export function QuizImageSequenceField({
   }
 
   return (
-    <Field label="Images (correct order)" htmlFor={inputId}>
+    <Field
+      label="Images"
+      htmlFor={inputId}
+      description="Organize the images in the correct order"
+    >
       <input
         ref={inputRef}
         id={inputId}

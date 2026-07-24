@@ -3,10 +3,12 @@
 export function Field({
   label,
   htmlFor,
+  description,
   children,
 }: {
   label: string;
   htmlFor: string;
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -14,6 +16,9 @@ export function Field({
       <label htmlFor={htmlFor} className="text-sm text-[var(--text-muted)]">
         {label}
       </label>
+      {description ? (
+        <p className="text-xs text-[var(--text-muted)]">{description}</p>
+      ) : null}
       {children}
     </div>
   );

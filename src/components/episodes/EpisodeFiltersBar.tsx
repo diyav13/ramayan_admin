@@ -1,9 +1,10 @@
 "use client";
 
 import { SearchInput } from "@/components/ui/SearchInput";
-import { ToolbarSelect } from "@/components/ui/ToolbarSelect";
-
-type FilterOption = { value: string; label: string };
+import {
+  ChapterFilterSelect,
+  type ChapterFilterOption,
+} from "@/components/episodes/ChapterFilterSelect";
 
 export function EpisodeFiltersBar({
   search,
@@ -18,7 +19,7 @@ export function EpisodeFiltersBar({
   onSearchClear: () => void;
   chapterId: string;
   onChapterChange: (value: string) => void;
-  chapterOptions: FilterOption[];
+  chapterOptions: readonly ChapterFilterOption[];
 }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -28,10 +29,10 @@ export function EpisodeFiltersBar({
         onClear={onSearchClear}
         placeholder="Search episodes by title…"
       />
-      <ToolbarSelect
+      <ChapterFilterSelect
         label="Filter by chapter"
         value={chapterId}
-        onChange={(e) => onChapterChange(e.target.value)}
+        onChange={onChapterChange}
         options={chapterOptions}
         className="w-[14rem]"
       />

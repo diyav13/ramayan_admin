@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { RowActions } from "@/components/RowActions";
 import { DataTable } from "@/components/DataTable";
@@ -13,6 +14,7 @@ import { QuizForm } from "@/components/quizzes/QuizForm";
 import { useQuizzes } from "@/hooks/useQuizzes";
 import {
   quizTypeLabel,
+  resolveQuizChapterAccentColor,
   resolveQuizChapterTitle,
   resolveQuizEpisodeTitle,
 } from "@/lib/quizzes";
@@ -34,6 +36,10 @@ const columns = [
 ];
 
 export default function QuizzesPage() {
+  const searchParams = useSearchParams();
+  const urlChapterId = searchParams.get("chapterId") ?? "";
+  const urlEpisodeId = searchParams.get("episodeId") ?? "";
+
   const {
     chapters,
     episodes,
@@ -72,15 +78,25 @@ export default function QuizzesPage() {
     deleteQuiz,
     askDelete,
     cancelDelete,
-  } = useQuizzes();
+  } = useQuizzes(urlChapterId, urlEpisodeId);
 
   const chapterOptions = [...chapters]
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((chapter) => ({ value: chapter.id, label: chapter.title }));
+    .map((chapter) => ({
+      value: chapter.id,
+      label: chapter.title,
+      accentColor: chapter.accentColor,
+    }));
 
   const chapterFilterOptions = [
     { value: "", label: "All chapters" },
-    ...chapterOptions,
+    ...[...chapters]
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((chapter) => ({
+        value: chapter.id,
+        label: chapter.title,
+        accentColor: chapter.accentColor,
+      })),
   ];
 
   const episodeFilterOptions = [
@@ -129,6 +145,7 @@ export default function QuizzesPage() {
               ? quiz.question
               : "Update this quiz question"
         }
+        onBack={closeEditor}
       >
         {error && <p className="mb-4 text-left text-sm text-red-400">{error}</p>}
         <QuizForm
@@ -195,10 +212,20 @@ export default function QuizzesPage() {
       ) : (
         <div className="overflow-hidden rounded-lg border border-white/5 bg-[var(--surface-alt)]">
           <DataTable columns={columns} minWidth={900} embedded>
-            {items.map((quiz) => (
+            {items.map((quiz) => {
+              const chapterColor = resolveQuizChapterAccentColor(
+                quiz,
+                chapters,
+                chapterId || undefined
+              );
+
+              return (
               <tr
                 key={quiz.id}
                 className="border-b border-white/5 last:border-0 transition hover:bg-white/[0.03]"
+                style={{
+                  borderLeft: `2px solid ${chapterColor}`,
+                }}
               >
                 <td className="px-4 py-3.5 align-top text-[var(--text-muted)]">
                   {quiz.orderIndex + 1}
@@ -243,7 +270,8 @@ export default function QuizzesPage() {
                   />
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </DataTable>
 
           {isPaginated && pagination && (

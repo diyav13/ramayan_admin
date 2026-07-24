@@ -19,6 +19,22 @@ const QUIZ_TYPE_LABELS: Record<QuizType, string> = {
   IMAGE_SEQUENCE: "Image sequence",
 };
 
+const DEFAULT_CHAPTER_ACCENT = "#666";
+
+function resolveQuizChapterId(
+  quiz: QuizListItem,
+  filterChapterId?: string
+): string {
+  return (
+    quiz.chapterId ??
+    quiz.episode?.chapterId ??
+    quiz.chapter?.id ??
+    quiz.episode?.chapter?.id ??
+    filterChapterId ??
+    ""
+  );
+}
+
 export function quizTypeLabel(type: QuizType): string {
   return QUIZ_TYPE_LABELS[type] ?? type;
 }
@@ -78,12 +94,19 @@ export function resolveQuizChapterTitle(
 ): string {
   if (quiz.chapter?.title) return quiz.chapter.title;
   if (quiz.episode?.chapter?.title) return quiz.episode.chapter.title;
-  const chapterId = quiz.chapterId ?? quiz.episode?.chapterId;
-  if (filterChapterId) {
-    const filtered = chapters.find((chapter) => chapter.id === filterChapterId);
-    if (filtered) return filtered.title;
-  }
+  const chapterId = resolveQuizChapterId(quiz, filterChapterId);
   return chapters.find((chapter) => chapter.id === chapterId)?.title ?? "—";
+}
+
+/** Quiz list row colors follow the parent chapter theme. */
+export function resolveQuizChapterAccentColor(
+  quiz: QuizListItem,
+  chapters: Chapter[],
+  filterChapterId?: string
+): string {
+  const chapterId = resolveQuizChapterId(quiz, filterChapterId);
+  const chapter = chapters.find((item) => item.id === chapterId);
+  return chapter?.accentColor ?? DEFAULT_CHAPTER_ACCENT;
 }
 
 export function resolveQuizEpisodeTitle(

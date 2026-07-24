@@ -3,7 +3,8 @@
 import { FormEvent, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { Select } from "@/components/ui/Select";
+import { ChapterSelectField } from "@/components/chapters/ChapterSelectField";
+import type { ChapterSelectOption } from "@/components/chapters/ChapterSelectField";
 import { MultiSelect } from "@/components/ui/MultiSelect";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { FormActions } from "@/components/FormActions";
@@ -87,7 +88,7 @@ export function EpisodeForm({
   onCancel,
 }: {
   episode: Episode | null;
-  chapterOptions: { value: string; label: string }[];
+  chapterOptions: ChapterSelectOption[];
   characterOptions: { value: string; label: string }[];
   locationOptions: { value: string; label: string }[];
   saving: boolean;
@@ -127,7 +128,7 @@ export function EpisodeForm({
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Title" name="title" defaultValue={episode?.title} required />
-        <Select
+        <ChapterSelectField
           label="Chapter"
           name="chapterId"
           options={chapterOptions}

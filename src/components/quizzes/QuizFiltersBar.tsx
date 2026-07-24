@@ -2,6 +2,10 @@
 
 import { SearchInput } from "@/components/ui/SearchInput";
 import { ToolbarSelect } from "@/components/ui/ToolbarSelect";
+import {
+  ChapterFilterSelect,
+  type ChapterFilterOption,
+} from "@/components/episodes/ChapterFilterSelect";
 import type { QuizType } from "@/types/quiz";
 
 type FilterOption = { value: string; label: string };
@@ -25,7 +29,7 @@ export function QuizFiltersBar({
   onSearchClear: () => void;
   chapterId: string;
   onChapterChange: (value: string) => void;
-  chapterOptions: FilterOption[];
+  chapterOptions: readonly ChapterFilterOption[];
   episodeId: string;
   onEpisodeChange: (value: string) => void;
   episodeOptions: FilterOption[];
@@ -41,10 +45,10 @@ export function QuizFiltersBar({
         onClear={onSearchClear}
         placeholder="Search questions…"
       />
-      <ToolbarSelect
+      <ChapterFilterSelect
         label="Filter by chapter"
         value={chapterId}
-        onChange={(e) => onChapterChange(e.target.value)}
+        onChange={onChapterChange}
         options={chapterOptions}
         className="w-[14rem]"
       />

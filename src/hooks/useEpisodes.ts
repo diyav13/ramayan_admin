@@ -30,13 +30,13 @@ import type { Location } from "@/types/location";
 /** Load enough options for episode multi-select dropdowns. */
 const ENTITY_OPTIONS_LIMIT = 100;
 
-export function useEpisodes() {
+export function useEpisodes(initialChapterId = "") {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [items, setItems] = useState<EpisodeListItem[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
-  const [chapterId, setChapterId] = useState("");
+  const [chapterId, setChapterId] = useState(initialChapterId);
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [page, setPage] = useState(1);
@@ -119,6 +119,10 @@ export function useEpisodes() {
     ensureChapters,
     loadInfoEntities,
   ]);
+
+  useEffect(() => {
+    setChapterId(initialChapterId);
+  }, [initialChapterId]);
 
   useEffect(() => {
     void load();

@@ -38,12 +38,13 @@ export default function InformationPage() {
       const character = characters.editingItem;
       return (
         <EditView
-          title={characters.creating ? "Add Character" : "Edit Character"}
-          subtitle={
-            characters.creating
-              ? "Create a new character"
-              : `Editing ${character?.name ?? "character"}`
+          title={
+            characters.creating ? "Add Character" : character?.name ?? "Character"
           }
+          subtitle={
+            characters.creating ? "Create a new character" : "Edit Character"
+          }
+          onBack={characters.closeEditor}
         >
           {characters.error && (
             <p className="mb-4 text-sm text-red-400">{characters.error}</p>
