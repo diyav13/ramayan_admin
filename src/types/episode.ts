@@ -36,6 +36,8 @@ export interface Episode {
   infoTitle: string | null;
   infoDescription: string | null;
   maxQuizQuestions: number;
+  /** Admin — total quiz questions linked to this episode. */
+  quizQuestionCount?: number;
   thumbnailUrl: string | null;
   contentType: ContentType;
   videoUrl: string | null;
