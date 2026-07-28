@@ -2,28 +2,16 @@ import { api } from "@/lib/api";
 import { paths } from "@/lib/api/paths";
 import { buildQuery } from "@/lib/api/query";
 import { DEFAULT_LIMIT, DEFAULT_PAGE } from "@/lib/pagination";
-import type { PaginatedResult } from "@/types/api";
 import type {
+  AdminEpisodeListingResponse,
+  AdminEpisodesByChapterResponse,
   CreateEpisodeInput,
   Episode,
   EpisodeListItem,
-  EpisodeListParams,
   EpisodeThumbnailUploadUrlInput,
   EpisodeThumbnailUploadUrlResponse,
   UpdateEpisodeInput,
 } from "@/types/episode";
-
-function toListQuery(params: EpisodeListParams): string {
-  const usePagination = !params.chapterId;
-
-  return buildQuery({
-    chapterId: params.chapterId,
-    search: params.search,
-    userRole: params.userRole,
-    page: usePagination ? (params.page ?? DEFAULT_PAGE) : undefined,
-    limit: usePagination ? (params.limit ?? DEFAULT_LIMIT) : undefined,
-  });
-}
 
 /** Normalize nested characters/locations into characterIds / locationIds for forms. */
 export function normalizeEpisodeEntities<T extends Episode | EpisodeListItem>(
@@ -45,16 +33,54 @@ export function normalizeEpisodeEntities<T extends Episode | EpisodeListItem>(
   };
 }
 
+function normalizeListing(
+  result: AdminEpisodeListingResponse
+): AdminEpisodeListingResponse {
+  return {
+    ...result,
+    episodes: result.episodes.map(normalizeEpisodeEntities),
+  };
+}
+
+function normalizeByChapter(
+  result: AdminEpisodesByChapterResponse
+): AdminEpisodesByChapterResponse {
+  return {
+    ...result,
+    episodes: result.episodes.map(normalizeEpisodeEntities),
+  };
+}
+
 export const episodeService = {
-  list: (
-    params: EpisodeListParams = {}
-  ): Promise<PaginatedResult<EpisodeListItem>> =>
+  /** One-call admin bootstrap: episodes + chapters + characters + locations. */
+  adminListing: (params: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<AdminEpisodeListingResponse> =>
     api
-      .list<EpisodeListItem>(`${paths.episodes.root}${toListQuery(params)}`)
-      .then((result) => ({
-        ...result,
-        data: result.data.map(normalizeEpisodeEntities),
-      })),
+      .get<AdminEpisodeListingResponse>(
+        `${paths.episodes.adminListing}${buildQuery({
+          search: params.search,
+          page: params.page ?? DEFAULT_PAGE,
+          limit: params.limit ?? DEFAULT_LIMIT,
+        })}`
+      )
+      .then(normalizeListing),
+
+  /** Chapter filter — episodes only (catalogs already loaded from listing). */
+  adminByChapter: (params: {
+    chapterId: string;
+    search?: string;
+  }): Promise<AdminEpisodesByChapterResponse> =>
+    api
+      .get<AdminEpisodesByChapterResponse>(
+        `${paths.episodes.adminByChapter}${buildQuery({
+          chapterId: params.chapterId,
+          search: params.search,
+        })}`
+      )
+      .then(normalizeByChapter),
 
   getById: (id: string) =>
     api

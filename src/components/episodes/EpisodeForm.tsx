@@ -67,6 +67,9 @@ function buildEpisodePayload(
     title: readText(form, "title"),
     description: optionalField(readText(form, "description")),
     moralOfTheStory: nullableField(readText(form, "moralOfTheStory")),
+    infoTitle: nullableField(readText(form, "infoTitle")),
+    infoDescription: nullableField(readText(form, "infoDescription")),
+    maxQuizQuestions: readNumber(form, "maxQuizQuestions"),
     thumbnailUrl: resolveThumbnailForSave(thumbnailPreview, existingThumbnail),
     videoUrl: resolveMediaForSave(videoPreview, existingVideo),
     orderIndex: toApiOrder(readNumber(form, "orderIndex")),
@@ -150,6 +153,24 @@ export function EpisodeForm({
         placeholder="e.g. Honesty and courage lead to the right path."
       />
 
+      <div className="rounded-lg border border-white/10 bg-[var(--surface)]/40 p-4 space-y-4">
+        <p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+          Info tab (app)
+        </p>
+        <Input
+          label="Info title"
+          name="infoTitle"
+          defaultValue={episode?.infoTitle ?? ""}
+          placeholder="e.g. Birth Of The Four Brothers"
+        />
+        <Textarea
+          label="Info description"
+          name="infoDescription"
+          defaultValue={episode?.infoDescription ?? ""}
+          placeholder="Story context shown in the app INFO tab…"
+        />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <MultiSelect
           label="Characters"
@@ -179,6 +200,17 @@ export function EpisodeForm({
             type="number"
             min={1}
             defaultValue={displayOrder}
+          />
+        </div>
+        <div className="w-36 shrink-0">
+          <Input
+            label="Quiz questions"
+            name="maxQuizQuestions"
+            type="number"
+            min={1}
+            max={50}
+            defaultValue={episode?.maxQuizQuestions ?? 5}
+            required
           />
         </div>
         <div className="pb-4">

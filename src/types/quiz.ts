@@ -25,7 +25,6 @@ export interface Quiz {
   items?: QuizImageSequenceItem[];
   /** @deprecated Legacy — use `items`. */
   images?: string[];
-  orderIndex: number;
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;
@@ -48,12 +47,12 @@ export interface QuizListItem {
   type: QuizType;
   question: string;
   description: string | null;
-  answer: boolean | number | number[];
+  /** Omitted on list summaries — present after getById / create / update. */
+  answer?: boolean | number | number[];
   options?: string[];
   items?: QuizImageSequenceItem[];
   /** @deprecated Legacy — use `items`. */
   images?: string[];
-  orderIndex: number;
   isPublished?: boolean;
   episode?: {
     id: string;
@@ -86,7 +85,6 @@ export interface CreateQuizInput {
   answer?: boolean | number | number[];
   options?: string[];
   items?: QuizImageSequenceItem[];
-  orderIndex?: number;
   isPublished?: boolean;
 }
 

@@ -108,7 +108,12 @@ export default function QuizzesPage() {
 
   const formEpisodeOptions = [...formEpisodes]
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .map((episode) => ({ value: episode.id, label: episode.title }));
+    .map((episode) => ({
+      value: episode.id,
+      label: episode.title,
+      maxQuizQuestions: episode.maxQuizQuestions ?? 5,
+      quizQuestionCount: episode.quizQuestionCount ?? 0,
+    }));
 
   const typeFilterOptions = [
     { value: "", label: "All types" },
@@ -155,11 +160,6 @@ export default function QuizzesPage() {
           episodesLoading={formEpisodesLoading}
           saving={saving}
           creating={creating}
-          defaultDisplayOrder={
-            items.length > 0
-              ? Math.max(...items.map((item) => item.orderIndex)) + 2
-              : 1
-          }
           onChapterChange={(id) => void loadFormEpisodes(id)}
           onSave={(payload) => handleSave(payload, quiz)}
           onCancel={closeEditor}
@@ -212,12 +212,15 @@ export default function QuizzesPage() {
       ) : (
         <div className="overflow-hidden rounded-lg border border-white/5 bg-[var(--surface-alt)]">
           <DataTable columns={columns} minWidth={900} embedded>
-            {items.map((quiz) => {
+            {items.map((quiz, index) => {
               const chapterColor = resolveQuizChapterAccentColor(
                 quiz,
                 chapters,
                 chapterId || undefined
               );
+              const serialNumber = isPaginated
+                ? (page - 1) * (pagination?.limit ?? items.length) + index + 1
+                : index + 1;
 
               return (
               <tr
@@ -228,7 +231,7 @@ export default function QuizzesPage() {
                 }}
               >
                 <td className="px-4 py-3.5 align-top text-[var(--text-muted)]">
-                  {quiz.orderIndex + 1}
+                  {serialNumber}
                 </td>
                 <td className="px-4 py-3.5 align-top">
                   <p className="line-clamp-2 font-serif text-[15px] text-white">

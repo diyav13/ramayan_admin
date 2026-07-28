@@ -20,15 +20,19 @@ type ChapterFilterSelectProps = {
   value: string;
   onChange: (value: string) => void;
   options: readonly ChapterFilterOption[];
+  placeholder?: string;
+  disabled?: boolean;
   className?: string;
 };
 
-/** Chapter filter with dark dropdown rows and a 2px accent stripe on the right. */
+/** Chapter filter with dark dropdown rows and optional 2px accent stripe on the right. */
 export function ChapterFilterSelect({
   label,
   value,
   onChange,
   options,
+  placeholder = "Select…",
+  disabled = false,
   className = "",
 }: ChapterFilterSelectProps) {
   const listId = useId();
@@ -61,11 +65,13 @@ export function ChapterFilterSelect({
   }, [open]);
 
   function selectOption(optionValue: string) {
+    if (disabled) return;
     onChange(optionValue);
     setOpen(false);
   }
 
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (disabled) return;
     if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
       event.preventDefault();
       setOpen(true);
@@ -83,9 +89,13 @@ export function ChapterFilterSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={label}
-        onClick={() => setOpen((prev) => !prev)}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((prev) => !prev);
+        }}
         onKeyDown={handleTriggerKeyDown}
-        className={`${controlClass} flex h-10 w-full items-center justify-between gap-2 py-2 pl-3 pr-9 text-left`}
+        className={`${controlClass} flex h-10 w-full items-center justify-between gap-2 py-2 pl-3 pr-9 text-left disabled:cursor-not-allowed disabled:opacity-60`}
         style={
           selected?.accentColor
             ? { borderRight: `2px solid ${selected.accentColor}` }
@@ -93,7 +103,7 @@ export function ChapterFilterSelect({
         }
       >
         <span className="min-w-0 flex-1 truncate text-white">
-          {selected?.label ?? "All chapters"}
+          {selected?.label ?? placeholder}
         </span>
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
           <ChevronIcon open={open} />

@@ -10,6 +10,7 @@ export interface Chapter {
   tagline: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Present on admin list/create/update responses. */
   _count?: { episodes: number };
 }
 

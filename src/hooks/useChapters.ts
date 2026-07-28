@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { createInflightDedupe } from "@/lib/api/inflight";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -11,6 +12,8 @@ import type {
   UpdateChapterInput,
 } from "@/types/chapter";
 
+const fetchChaptersOnce = createInflightDedupe<Chapter[]>();
+
 export function useChapters() {
   const [items, setItems] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,22 +22,31 @@ export function useChapters() {
   const editor = useEditorState<Chapter>();
   const mutation = useMutationState();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const chapters = await chapterService.getAllAdmin();
-      setItems(chapters);
-    } catch (err) {
-      setError(getErrorMessage(err, "Failed to load chapters"));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const chapters = await fetchChaptersOnce(() =>
+          chapterService.getAllAdmin()
+        );
+        if (cancelled) return;
+        setItems(chapters);
+      } catch (err) {
+        if (cancelled) return;
+        setError(getErrorMessage(err, "Failed to load chapters"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
     void load();
-  }, [load]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const startEdit = (id: string) => {
     mutation.clearError();
@@ -49,8 +61,10 @@ export function useChapters() {
   const createChapter = async (data: CreateChapterInput) => {
     await mutation.run(
       async () => {
-        await chapterService.create(data);
-        await load();
+        const created = await chapterService.create(data);
+        setItems((prev) =>
+          [...prev, created].sort((a, b) => a.orderIndex - b.orderIndex)
+        );
         editor.closeEditor();
       },
       "Failed to create chapter",
@@ -61,8 +75,12 @@ export function useChapters() {
   const updateChapter = async (id: string, data: UpdateChapterInput) => {
     await mutation.run(
       async () => {
-        await chapterService.update(id, data);
-        await load();
+        const updated = await chapterService.update(id, data);
+        setItems((prev) =>
+          prev
+            .map((item) => (item.id === id ? updated : item))
+            .sort((a, b) => a.orderIndex - b.orderIndex)
+        );
         editor.closeEditor();
       },
       "Failed to update chapter",
@@ -74,7 +92,7 @@ export function useChapters() {
     await mutation.run(async () => {
       await chapterService.remove(id);
       editor.cancelDelete();
-      await load();
+      setItems((prev) => prev.filter((item) => item.id !== id));
     }, "Failed to delete chapter");
   };
 

@@ -27,8 +27,8 @@ import type {
 
 export default function InformationPage() {
   const [tab, setTab] = useState<InformationTab>("characters");
-  const characters = useCharacters();
-  const locations = useLocations();
+  const characters = useCharacters(tab === "characters");
+  const locations = useLocations(tab === "locations");
 
   const isCharacters = tab === "characters";
   const active = isCharacters ? characters : locations;
@@ -164,7 +164,7 @@ export default function InformationPage() {
             items={active.items}
             imageVariant={isCharacters ? "portrait" : "landscape"}
             confirmDeleteId={active.confirmDeleteId}
-            onEdit={(id) => void active.startEdit(id)}
+            onEdit={(id) => active.startEdit(id)}
             onAskDelete={active.askDelete}
             onCancelDelete={active.cancelDelete}
             onConfirmDelete={(id) => {

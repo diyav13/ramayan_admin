@@ -29,26 +29,46 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Survives Strict Mode remounts so AdminGuard does not flash loading twice. */
+let authHydration: { user: AuthUser | null; ready: boolean } = {
+  user: null,
+  ready: false,
+};
+
+function readSessionUser(): AuthUser | null {
+  const storedUser = getStoredUser();
+  return storedUser && hasSession() ? storedUser : null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(() =>
+    authHydration.ready ? authHydration.user : null
+  );
+  const [isLoading, setIsLoading] = useState(() => !authHydration.ready);
 
   useEffect(() => {
-    const storedUser = getStoredUser();
-    if (storedUser && hasSession()) {
-      setUser(storedUser);
+    if (authHydration.ready) {
+      setUser(authHydration.user);
+      setIsLoading(false);
+      return;
     }
+
+    const nextUser = readSessionUser();
+    authHydration = { user: nextUser, ready: true };
+    setUser(nextUser);
     setIsLoading(false);
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const data = await loginRequest(credentials);
+    authHydration = { user: data.user, ready: true };
     setUser(data.user);
   }, []);
 
   const logout = useCallback(async () => {
     await logoutRequest();
+    authHydration = { user: null, ready: true };
     setUser(null);
     router.push("/login");
     router.refresh();

@@ -5,7 +5,7 @@
 export const paths = {
   chapters: {
     root: "/chapters",
-    adminAll: "/chapters/admin/all",
+    adminAll: "/chapters/admin/allchapters",
     byId: (id: string) => `/chapters/${id}`,
     thumbnailUploadUrl: "/chapters/thumbnail/upload-url",
     /** Same-origin BFF — presign + S3 PUT on server (avoids bucket CORS). */
@@ -13,6 +13,8 @@ export const paths = {
   },
   episodes: {
     root: "/episodes",
+    adminListing: "/episodes/admin/listing",
+    adminByChapter: "/episodes/admin/bychapter",
     byId: (id: string) => `/episodes/${id}`,
     thumbnailUploadUrl: "/episodes/thumbnail/upload-url",
     /** Same-origin BFF — presign + S3 PUT on server (avoids bucket CORS). */

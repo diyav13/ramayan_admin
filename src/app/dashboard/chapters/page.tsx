@@ -10,7 +10,7 @@ import { ListState } from "@/components/ListState";
 import { ChapterForm } from "@/components/chapters/ChapterForm";
 import { PublishBadge, PremiumLabel } from "@/components/StatusBadges";
 import { useChapters } from "@/hooks/useChapters";
-import { formatDate, pluralize } from "@/lib/utils";
+import { pluralize } from "@/lib/utils";
 import type {
   Chapter,
   CreateChapterInput,
@@ -22,7 +22,7 @@ const columns = [
   { label: "Chapter" },
   { label: "Status" },
   { label: "Access" },
-  { label: "Updated" },
+  { label: "Episodes" },
   { label: "Actions", align: "right" as const },
 ];
 
@@ -170,7 +170,7 @@ export default function ChaptersPage() {
                   <PremiumLabel premium={chapter.isPremium} />
                 </td>
                 <td className="px-4 py-3.5 text-[var(--text-muted)]">
-                  {formatDate(chapter.updatedAt)}
+                  {chapter._count?.episodes ?? 0}
                 </td>
                 <td className="px-4 py-3.5">
                   <RowActions

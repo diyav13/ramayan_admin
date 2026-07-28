@@ -308,7 +308,7 @@ export default function EpisodesPage() {
                         });
                         router.push(`/dashboard/quizzes?${params.toString()}`);
                       }}
-                      onEdit={() => void startEdit(episode.id)}
+                      onEdit={() => startEdit(episode.id)}
                       onAskDelete={() => askDelete(episode.id)}
                       onCancelDelete={cancelDelete}
                       onConfirmDelete={() => void deleteEpisode(episode.id)}

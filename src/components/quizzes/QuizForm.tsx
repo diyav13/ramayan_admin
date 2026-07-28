@@ -8,14 +8,13 @@ import { QuizImageSequenceField } from "@/components/quizzes/QuizImageSequenceFi
 import { QuizMcqOptionsField } from "@/components/quizzes/QuizMcqOptionsField";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { DarkSelectField } from "@/components/ui/DarkSelectField";
-import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import {
   quizItemsForForm,
   resolveItemsForSave,
   type QuizImageSequenceFormItem,
 } from "@/lib/quizzes";
-import { optionalField, readCheckbox, readNumber, readText } from "@/lib/utils";
+import { optionalField, readCheckbox, readText } from "@/lib/utils";
 import type {
   CreateQuizInput,
   Quiz,
@@ -33,10 +32,6 @@ const TRUE_FALSE_OPTIONS = [
   { value: "true", label: "True" },
   { value: "false", label: "False" },
 ];
-
-function toApiOrder(displayOrder: number): number {
-  return Math.max(0, displayOrder - 1);
-}
 
 function mcqAnswerText(quiz: Quiz | null): string {
   if (!quiz || quiz.type !== "MCQ" || !quiz.options) return "";
@@ -64,7 +59,6 @@ function buildQuizPayload(
     type,
     question: readText(form, "question"),
     description: optionalField(readText(form, "description")),
-    orderIndex: toApiOrder(readNumber(form, "orderIndex")),
     isPublished: readCheckbox(form, "isPublished"),
   };
 
@@ -85,10 +79,9 @@ function buildQuizPayload(
     };
   }
 
-  const resolvedItems = resolveItemsForSave(sequenceItems);
   return {
     ...base,
-    items: resolvedItems,
+    items: resolveItemsForSave(sequenceItems),
   };
 }
 
@@ -99,18 +92,21 @@ export function QuizForm({
   episodesLoading,
   saving,
   creating,
-  defaultDisplayOrder = 1,
   onChapterChange,
   onSave,
   onCancel,
 }: {
   quiz: Quiz | null;
   chapterOptions: ChapterSelectOption[];
-  episodeOptions: { value: string; label: string }[];
+  episodeOptions: {
+    value: string;
+    label: string;
+    maxQuizQuestions?: number;
+    quizQuestionCount?: number;
+  }[];
   episodesLoading?: boolean;
   saving: boolean;
   creating: boolean;
-  defaultDisplayOrder?: number;
   onChapterChange: (chapterId: string) => void;
   onSave: (payload: CreateQuizInput | UpdateQuizInput) => Promise<void>;
   onCancel: () => void;
@@ -134,12 +130,16 @@ export function QuizForm({
   const [imageUploading, setImageUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const displayOrder = quiz ? quiz.orderIndex + 1 : defaultDisplayOrder;
   const didInitChapterRef = useRef(false);
 
-  const chapterSelectOptions = chapterOptions;
-
   const episodeSelectOptions = episodesLoading ? [] : episodeOptions;
+
+  const selectedEpisode = episodeSelectOptions.find(
+    (option) => option.value === episodeId
+  );
+  const maxQuizQuestions = selectedEpisode?.maxQuizQuestions ?? 5;
+  const quizQuestionCount = selectedEpisode?.quizQuestionCount ?? 0;
+  const quizAtLimit = creating && quizQuestionCount >= maxQuizQuestions;
 
   const episodePlaceholder = episodesLoading
     ? "Loading episodes…"
@@ -164,11 +164,17 @@ export function QuizForm({
         "";
       if (nextChapter) setChapterId(nextChapter);
       setEpisodeId(quiz.episodeId);
+      setType(quiz.type);
+      setMcqOptions(
+        quiz.options && quiz.options.length >= 2 ? quiz.options : ["", ""]
+      );
+      setMcqAnswer(mcqAnswerText(quiz));
       setSequenceItems(quizItemsForForm(quiz));
     }
   }, [creating, quiz]);
 
   useEffect(() => {
+    if (episodesLoading) return;
     if (
       episodeId &&
       episodeOptions.length > 0 &&
@@ -176,7 +182,7 @@ export function QuizForm({
     ) {
       setEpisodeId("");
     }
-  }, [episodeOptions, episodeId]);
+  }, [episodeOptions, episodeId, episodesLoading]);
 
   function handleChapterChange(nextChapterId: string) {
     setChapterId(nextChapterId);
@@ -194,6 +200,13 @@ export function QuizForm({
     }
     if (!episodeId) {
       setFormError("Please select an episode.");
+      return;
+    }
+
+    if (creating && quizQuestionCount >= maxQuizQuestions) {
+      setFormError(
+        `This episode already has the maximum of ${maxQuizQuestions} quiz questions.`
+      );
       return;
     }
 
@@ -222,14 +235,9 @@ export function QuizForm({
     }
 
     const form = new FormData(event.currentTarget);
-    const payload = buildQuizPayload(
-      form,
-      type,
-      mcqOptions,
-      mcqAnswer,
-      sequenceItems
+    await onSave(
+      buildQuizPayload(form, type, mcqOptions, mcqAnswer, sequenceItems)
     );
-    await onSave(payload);
   }
 
   return (
@@ -241,21 +249,33 @@ export function QuizForm({
         <ChapterSelectField
           label="Chapter"
           name="chapterId"
-          options={chapterSelectOptions}
+          options={chapterOptions}
           value={chapterId}
           onChange={handleChapterChange}
           required
         />
-        <DarkSelectField
-          label="Episode"
-          name="episodeId"
-          options={episodeSelectOptions}
-          value={episodeId}
-          onChange={setEpisodeId}
-          placeholder={episodePlaceholder}
-          required
-          disabled={!chapterId || episodesLoading}
-        />
+        <div>
+          <DarkSelectField
+            label="Episode"
+            name="episodeId"
+            options={episodeSelectOptions}
+            value={episodeId}
+            onChange={setEpisodeId}
+            placeholder={episodePlaceholder}
+            required
+            disabled={!chapterId || episodesLoading}
+          />
+          {creating && episodeId ? (
+            <p
+              className={`mt-1.5 text-xs ${
+                quizAtLimit ? "text-red-400" : "text-[var(--text-muted)]"
+              }`}
+            >
+              {quizQuestionCount} / {maxQuizQuestions} questions used
+              {quizAtLimit ? " — limit reached" : ""}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <DarkSelectField
@@ -315,23 +335,12 @@ export function QuizForm({
         placeholder="Optional explanation shown after answering"
       />
 
-      <div className="flex flex-wrap items-end gap-6">
-        <div className="w-28 shrink-0">
-          <Input
-            label="Order"
-            name="orderIndex"
-            type="number"
-            min={1}
-            defaultValue={displayOrder}
-          />
-        </div>
-        <div className="pb-4">
-          <Checkbox
-            label="Published"
-            name="isPublished"
-            defaultChecked={quiz?.isPublished ?? false}
-          />
-        </div>
+      <div className="pb-1">
+        <Checkbox
+          label="Published"
+          name="isPublished"
+          defaultChecked={quiz?.isPublished ?? false}
+        />
       </div>
 
       {formError ? <p className="text-sm text-red-400">{formError}</p> : null}
@@ -345,7 +354,7 @@ export function QuizForm({
               : "Save Changes"
         }
         onCancel={onCancel}
-        submitDisabled={saving || imageUploading}
+        submitDisabled={saving || imageUploading || quizAtLimit}
       />
     </form>
   );

@@ -18,7 +18,7 @@ type EpisodeVideoFieldProps = {
   onChange: (url: string) => void;
   /** Required for multipart upload — save the episode first when creating. */
   episodeId?: string;
-  /** Optional seed from episode detail (avoids a flash before status fetch). */
+  /** Optional seed from list/detail — avoids status API on form open. */
   initialUploadStatus?: string | null;
   onUploadingChange?: (uploading: boolean) => void;
 };
@@ -85,8 +85,9 @@ function mapServerStatus(status: string | null | undefined): VideoUiStatus {
  * processing reaches READY. Local object URLs are used for in-browser preview
  * of the selected source file during upload.
  *
- * After bytes land in S3, conversion runs server-side. Status is checked once
- * when the create/edit form opens (and on demand) — never polled in a loop.
+ * After bytes land in S3, conversion runs server-side. Edit uses list payload
+ * (videoUrl / videoUploadStatus); status is only fetched on demand via
+ * "Check status" — never on form open, never polled in a loop.
  */
 export function EpisodeVideoField({
   value,
@@ -281,23 +282,6 @@ export function EpisodeVideoField({
       if (options?.showChecking) setCheckingStatus(false);
     }
   }
-
-  // One status check when opening create/edit with a saved episode — no loop.
-  useEffect(() => {
-    if (!episodeId?.trim() || uploadingLockRef.current) return;
-
-    statusAbortRef.current?.abort();
-    const controller = new AbortController();
-    statusAbortRef.current = controller;
-
-    void fetchVideoStatus({ signal: controller.signal });
-
-    return () => {
-      controller.abort();
-    };
-    // Only re-check when the episode changes — not on every value update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episodeId]);
 
   // Bind preview source only when the browser can play it natively.
   useEffect(() => {

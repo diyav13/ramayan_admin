@@ -1,14 +1,11 @@
 "use client";
 
 import { SearchInput } from "@/components/ui/SearchInput";
-import { ToolbarSelect } from "@/components/ui/ToolbarSelect";
 import {
   ChapterFilterSelect,
   type ChapterFilterOption,
 } from "@/components/episodes/ChapterFilterSelect";
 import type { QuizType } from "@/types/quiz";
-
-type FilterOption = { value: string; label: string };
 
 export function QuizFiltersBar({
   search,
@@ -32,10 +29,10 @@ export function QuizFiltersBar({
   chapterOptions: readonly ChapterFilterOption[];
   episodeId: string;
   onEpisodeChange: (value: string) => void;
-  episodeOptions: FilterOption[];
+  episodeOptions: readonly ChapterFilterOption[];
   typeFilter: QuizType | "";
   onTypeChange: (value: QuizType | "") => void;
-  typeOptions: FilterOption[];
+  typeOptions: readonly ChapterFilterOption[];
 }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:flex-wrap">
@@ -50,21 +47,24 @@ export function QuizFiltersBar({
         value={chapterId}
         onChange={onChapterChange}
         options={chapterOptions}
+        placeholder="All chapters"
         className="w-[14rem]"
       />
-      <ToolbarSelect
+      <ChapterFilterSelect
         label="Filter by episode"
         value={episodeId}
-        onChange={(e) => onEpisodeChange(e.target.value)}
+        onChange={onEpisodeChange}
         options={episodeOptions}
-        className="w-[14rem]"
+        placeholder={chapterId ? "All episodes" : "Select chapter first"}
         disabled={!chapterId}
+        className="w-[14rem]"
       />
-      <ToolbarSelect
+      <ChapterFilterSelect
         label="Filter by type"
         value={typeFilter}
-        onChange={(e) => onTypeChange(e.target.value as QuizType | "")}
+        onChange={(value) => onTypeChange(value as QuizType | "")}
         options={typeOptions}
+        placeholder="All types"
         className="w-[12rem]"
       />
     </div>

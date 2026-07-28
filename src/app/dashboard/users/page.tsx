@@ -134,7 +134,7 @@ export default function UsersPage() {
                 <td className="px-4 py-3.5 align-top">
                   <RowActions
                     confirming={confirmDeleteId === user.id}
-                    onEdit={() => void startEdit(user.id)}
+                    onEdit={() => startEdit(user.id)}
                     onAskDelete={() => askDelete(user.id)}
                     onCancelDelete={cancelDelete}
                     onConfirmDelete={() => void deleteUser(user.id)}
