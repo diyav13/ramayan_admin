@@ -2,6 +2,7 @@ import type { PaginationMeta } from "@/types/api";
 import type { Chapter } from "@/types/chapter";
 import type { Character } from "@/types/character";
 import type { Location } from "@/types/location";
+import type { QuizInstruction } from "@/types/quiz-instruction";
 
 export type ContentType = "VIDEO" | "SLIDESHOW";
 
@@ -11,6 +12,13 @@ export interface EpisodeEntityRef {
   name: string;
   imageUrl?: string | null;
   description?: string | null;
+}
+
+/** Nested quiz instruction on episode detail / list. */
+export interface EpisodeQuizInstructionRef {
+  id: string;
+  instruction: string;
+  imageUrl?: string | null;
 }
 
 /** INFO tab content returned by the app episode detail API. */
@@ -58,8 +66,10 @@ export interface Episode {
   processingError?: string | null;
   characterIds?: string[];
   locationIds?: string[];
+  quizInstructionIds?: string[];
   characters?: EpisodeEntityRef[];
   locations?: EpisodeEntityRef[];
+  quizInstructions?: EpisodeQuizInstructionRef[];
   chapter?: EpisodeChapterRef;
   /** App episode detail — INFO tab payload. */
   info?: EpisodeInfo;
@@ -91,8 +101,10 @@ export interface EpisodeListItem {
   processingError?: string | null;
   characterIds?: string[];
   locationIds?: string[];
+  quizInstructionIds?: string[];
   characters?: EpisodeEntityRef[];
   locations?: EpisodeEntityRef[];
+  quizInstructions?: EpisodeQuizInstructionRef[];
   chapter?: EpisodeChapterRef;
   createdAt?: string;
   updatedAt?: string;
@@ -117,6 +129,7 @@ export interface AdminEpisodeListingResponse {
   chapters: Chapter[];
   characters: Character[];
   locations: Location[];
+  quizInstructions: QuizInstruction[];
 }
 
 export interface AdminEpisodesByChapterResponse {
@@ -143,6 +156,8 @@ export interface CreateEpisodeInput {
   accentColor?: string;
   characterIds?: string[];
   locationIds?: string[];
+  /** Required 1–4 quiz instruction cards for the episode. */
+  quizInstructionIds?: string[];
 }
 
 export type UpdateEpisodeInput = Partial<CreateEpisodeInput>;
@@ -150,9 +165,9 @@ export type UpdateEpisodeInput = Partial<CreateEpisodeInput>;
 export interface EpisodeThumbnailUploadUrlInput {
   fileName: string;
   contentType: string;
-  /** Asset folder — episode (default), character, or location. */
-  type?: "episode" | "character" | "location";
-  /** Existing character / location / episode id for the S3 folder. */
+  /** Asset folder — episode (default), character, location, or quiz instruction. */
+  type?: "episode" | "character" | "location" | "quizInstruction" | "misc";
+  /** Existing character / location / quiz-instruction / episode id for the S3 folder. */
   entityId?: string;
   /** Omit for create (draft folder); pass when replacing an existing episode thumbnail. */
   episodeId?: string;

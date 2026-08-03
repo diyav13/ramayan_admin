@@ -165,10 +165,10 @@ export const uploadService = {
     uploadMediaImage(file, { type: "episode", episodeId }),
   chapterThumbnail: (file: File, chapterId?: string) =>
     uploadChapterThumbnail(file, chapterId),
-  /** Character or location portrait/landscape image. */
+  /** Character, location, or quiz-instruction image. */
   entityImage: (
     file: File,
-    type: "character" | "location",
+    type: "character" | "location" | "quizInstruction",
     entityId?: string
   ) => uploadMediaImage(file, { type, entityId }),
   quizImage: (file: File, options: QuizImageUploadOptions) =>

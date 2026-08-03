@@ -23,6 +23,12 @@ type MultiSelectProps = {
   placeholder?: string;
   emptyMessage?: string;
   searchPlaceholder?: string;
+  /** Minimum selections required (shown as hint; enforce in form submit if needed). */
+  min?: number;
+  /** Maximum selections allowed — further adds are blocked. */
+  max?: number;
+  hint?: string;
+  error?: string | null;
 };
 
 /**
@@ -36,6 +42,10 @@ export function MultiSelect({
   placeholder = "Select…",
   emptyMessage = "No options available",
   searchPlaceholder = "Search…",
+  min,
+  max,
+  hint,
+  error,
 }: MultiSelectProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -43,6 +53,7 @@ export function MultiSelect({
   const [search, setSearch] = useState("");
 
   const selected = useMemo(() => new Set(value), [value]);
+  const atMax = max != null && value.length >= max;
 
   const selectedOptions = useMemo(
     () => options.filter((option) => selected.has(option.value)),
@@ -56,6 +67,16 @@ export function MultiSelect({
       option.label.toLowerCase().includes(query)
     );
   }, [options, search]);
+
+  const rangeHint =
+    hint ??
+    (min != null && max != null
+      ? `Select ${min}–${max}`
+      : min != null
+        ? `Select at least ${min}`
+        : max != null
+          ? `Select up to ${max}`
+          : undefined);
 
   useEffect(() => {
     if (!open) return;
@@ -87,6 +108,7 @@ export function MultiSelect({
       onChange(value.filter((id) => id !== optionValue));
       return;
     }
+    if (atMax) return;
     onChange([...value, optionValue]);
   }
 
@@ -118,7 +140,9 @@ export function MultiSelect({
           aria-expanded={open}
           onClick={() => setOpen((prev) => !prev)}
           onKeyDown={handleTriggerKeyDown}
-          className={`${controlClass} flex min-h-14 items-center justify-between gap-2 px-4 text-left`}
+          className={`${controlClass} flex min-h-14 items-center justify-between gap-2 px-4 text-left ${
+            error ? "ring-1 ring-red-400/60" : ""
+          }`}
         >
           <span
             className={`min-w-0 flex-1 truncate ${
@@ -183,17 +207,22 @@ export function MultiSelect({
               ) : (
                 filteredOptions.map((option) => {
                   const checked = selected.has(option.value);
+                  const disabled = !checked && atMax;
                   return (
                     <button
                       key={option.value}
                       type="button"
                       role="option"
                       aria-selected={checked}
+                      aria-disabled={disabled}
+                      disabled={disabled}
                       onClick={() => toggle(option.value)}
                       className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-sm transition ${
-                        checked
-                          ? "bg-[var(--gold)]/15 text-white"
-                          : "text-[var(--text-muted)] hover:bg-white/5 hover:text-white"
+                        disabled
+                          ? "cursor-not-allowed text-[var(--text-muted)]/50"
+                          : checked
+                            ? "bg-[var(--gold)]/15 text-white"
+                            : "text-[var(--text-muted)] hover:bg-white/5 hover:text-white"
                       }`}
                     >
                       <span
@@ -212,9 +241,21 @@ export function MultiSelect({
                 })
               )}
             </div>
+
+            {atMax ? (
+              <p className="border-t border-white/5 px-3 py-2 text-xs text-[var(--text-muted)]">
+                Maximum of {max} selected
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
+
+      {error ? (
+        <p className="mt-1.5 text-xs text-red-400">{error}</p>
+      ) : rangeHint ? (
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">{rangeHint}</p>
+      ) : null}
     </Field>
   );
 }

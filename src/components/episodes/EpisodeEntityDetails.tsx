@@ -4,10 +4,12 @@ import { useState } from "react";
 import {
   resolveEpisodeCharacterNames,
   resolveEpisodeLocationNames,
+  resolveEpisodeQuizInstructionLabels,
 } from "@/lib/episodes";
 import type { EpisodeListItem } from "@/types/episode";
 
 type NamedEntity = { id: string; name: string };
+type InstructionEntity = { id: string; instruction: string };
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
@@ -49,10 +51,12 @@ export function EpisodeEntityDetails({
   episode,
   characters,
   locations,
+  quizInstructions,
 }: {
   episode: EpisodeListItem;
   characters: NamedEntity[];
   locations: NamedEntity[];
+  quizInstructions: InstructionEntity[];
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -61,7 +65,11 @@ export function EpisodeEntityDetails({
     episode.characterIds
   );
   const locationCount = countEntities(episode.locations, episode.locationIds);
-  const total = characterCount + locationCount;
+  const quizInstructionCount = countEntities(
+    episode.quizInstructions,
+    episode.quizInstructionIds
+  );
+  const total = characterCount + locationCount + quizInstructionCount;
 
   if (total === 0) {
     return null;
@@ -78,9 +86,20 @@ export function EpisodeEntityDetails({
       `${locationCount} ${locationCount === 1 ? "location" : "locations"}`
     );
   }
+  if (quizInstructionCount > 0) {
+    summaryParts.push(
+      `${quizInstructionCount} ${
+        quizInstructionCount === 1 ? "instruction" : "instructions"
+      }`
+    );
+  }
 
   const characterNames = resolveEpisodeCharacterNames(episode, characters);
   const locationNames = resolveEpisodeLocationNames(episode, locations);
+  const quizInstructionLabels = resolveEpisodeQuizInstructionLabels(
+    episode,
+    quizInstructions
+  );
 
   return (
     <div className="mt-1">
@@ -107,6 +126,9 @@ export function EpisodeEntityDetails({
           ) : null}
           {locationCount > 0 ? (
             <MetaLine label="Locations" value={locationNames} />
+          ) : null}
+          {quizInstructionCount > 0 ? (
+            <MetaLine label="Instructions" value={quizInstructionLabels} />
           ) : null}
         </div>
       ) : null}

@@ -10,10 +10,15 @@ const MAX_BYTES = 10 * 1024 * 1024;
 /** Must match `getUploadSignedUrl` in ramayana-server `src/utils/s3.ts`. */
 const MEDIA_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
-export type MediaImageUploadType = "episode" | "character" | "location";
+export type MediaImageUploadType =
+  | "episode"
+  | "character"
+  | "location"
+  | "quizInstruction"
+  | "misc";
 
 export type MediaImageUploadOptions = {
-  /** Asset folder: episode (default), character, or location. */
+  /** Asset folder: episode (default), character, location, or quiz instruction (`misc` alias). */
   type?: MediaImageUploadType;
   /** Existing episode id (legacy field still accepted by the upload-url API). */
   episodeId?: string;

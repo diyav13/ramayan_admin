@@ -104,6 +104,28 @@ export function resolveEpisodeLocationNames(
   );
 }
 
+export function resolveEpisodeQuizInstructionLabels(
+  episode: EpisodeListItem,
+  quizInstructions: { id: string; instruction: string }[]
+): string {
+  const nested = episode.quizInstructions;
+  if (nested && nested.length > 0) {
+    return nested.map((item) => item.instruction).join(", ");
+  }
+
+  const ids = episode.quizInstructionIds;
+  if (!ids || ids.length === 0) return "—";
+
+  const lookup = new Map(
+    quizInstructions.map((item) => [item.id, item.instruction])
+  );
+  const labels = ids
+    .map((id) => lookup.get(id))
+    .filter((label): label is string => Boolean(label));
+
+  return labels.length > 0 ? labels.join(", ") : "—";
+}
+
 /** Normalize list rows so chapter metadata is consistent across paginated and chapter-filtered API shapes. */
 export function normalizeEpisodeListItems(
   items: EpisodeListItem[],
@@ -123,6 +145,10 @@ export function normalizeEpisodeListItems(
         item.characterIds ?? item.characters?.map((entity) => entity.id) ?? [],
       locationIds:
         item.locationIds ?? item.locations?.map((entity) => entity.id) ?? [],
+      quizInstructionIds:
+        item.quizInstructionIds ??
+        item.quizInstructions?.map((entity) => entity.id) ??
+        [],
       chapter:
         item.chapter ??
         (chapter

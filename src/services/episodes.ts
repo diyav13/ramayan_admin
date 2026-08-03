@@ -13,7 +13,7 @@ import type {
   UpdateEpisodeInput,
 } from "@/types/episode";
 
-/** Normalize nested characters/locations into characterIds / locationIds for forms. */
+/** Normalize nested characters/locations/quiz instructions into ID arrays for forms. */
 export function normalizeEpisodeEntities<T extends Episode | EpisodeListItem>(
   episode: T
 ): T {
@@ -25,11 +25,16 @@ export function normalizeEpisodeEntities<T extends Episode | EpisodeListItem>(
     episode.locationIds ??
     episode.locations?.map((item) => item.id) ??
     [];
+  const quizInstructionIds =
+    episode.quizInstructionIds ??
+    episode.quizInstructions?.map((item) => item.id) ??
+    [];
 
   return {
     ...episode,
     characterIds,
     locationIds,
+    quizInstructionIds,
   };
 }
 
@@ -52,7 +57,7 @@ function normalizeByChapter(
 }
 
 export const episodeService = {
-  /** One-call admin bootstrap: episodes + chapters + characters + locations. */
+  /** One-call admin bootstrap: episodes + chapters + characters + locations + quiz instructions. */
   adminListing: (params: {
     search?: string;
     page?: number;
@@ -87,13 +92,13 @@ export const episodeService = {
       .get<Episode>(paths.episodes.byId(id))
       .then(normalizeEpisodeEntities),
 
-  /** Single create call — include characterIds / locationIds in the body. */
+  /** Single create call — include characterIds / locationIds / quizInstructionIds in the body. */
   create: (data: CreateEpisodeInput) =>
     api
       .post<Episode>(paths.episodes.root, data)
       .then(normalizeEpisodeEntities),
 
-  /** Single update call — include characterIds / locationIds in the body. */
+  /** Single update call — include characterIds / locationIds / quizInstructionIds in the body. */
   update: (id: string, data: UpdateEpisodeInput) =>
     api
       .patch<Episode>(paths.episodes.byId(id), data)

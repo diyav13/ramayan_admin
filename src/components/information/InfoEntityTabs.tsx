@@ -1,10 +1,11 @@
 "use client";
 
-export type InformationTab = "characters" | "locations";
+export type InformationTab = "characters" | "locations" | "quizInstructions";
 
 const tabs: { id: InformationTab; label: string }[] = [
   { id: "characters", label: "Characters" },
   { id: "locations", label: "Locations" },
+  { id: "quizInstructions", label: "Quiz Instructions" },
 ];
 
 type InfoEntityTabsProps = {

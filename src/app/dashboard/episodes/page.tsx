@@ -87,6 +87,7 @@ export default function EpisodesPage() {
     chapters,
     characters,
     locations,
+    quizInstructions,
     items,
     pagination,
     totalCount,
@@ -135,6 +136,11 @@ export default function EpisodesPage() {
     label: location.name,
   }));
 
+  const quizInstructionOptions = quizInstructions.map((instruction) => ({
+    value: instruction.id,
+    label: instruction.instruction,
+  }));
+
   const chapterFilterOptions = [
     { value: "", label: "All chapters" },
     ...[...chapters]
@@ -178,6 +184,7 @@ export default function EpisodesPage() {
           chapterOptions={chapterOptions}
           characterOptions={characterOptions}
           locationOptions={locationOptions}
+          quizInstructionOptions={quizInstructionOptions}
           saving={saving}
           creating={creating}
           defaultDisplayOrder={
@@ -280,6 +287,7 @@ export default function EpisodesPage() {
                           episode={episode}
                           characters={characters}
                           locations={locations}
+                          quizInstructions={quizInstructions}
                         />
                       </div>
                     </div>

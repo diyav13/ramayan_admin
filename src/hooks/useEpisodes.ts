@@ -13,6 +13,7 @@ import {
   totalFromPagination,
 } from "@/lib/pagination";
 import { episodeService } from "@/services/episodes";
+import { quizInstructionService } from "@/services/quiz-instructions";
 import type { PaginationMeta } from "@/types/api";
 import type { Chapter } from "@/types/chapter";
 import type { Character } from "@/types/character";
@@ -23,6 +24,7 @@ import type {
   UpdateEpisodeInput,
 } from "@/types/episode";
 import type { Location } from "@/types/location";
+import type { QuizInstruction } from "@/types/quiz-instruction";
 
 const fetchListingOnce = createInflightDedupe<
   Awaited<ReturnType<typeof episodeService.adminListing>>
@@ -30,6 +32,30 @@ const fetchListingOnce = createInflightDedupe<
 const fetchByChapterOnce = createInflightDedupe<
   Awaited<ReturnType<typeof episodeService.adminByChapter>>
 >();
+const fetchQuizInstructionCatalogOnce = createInflightDedupe<
+  QuizInstruction[]
+>();
+
+async function loadQuizInstructionCatalog(
+  fromListing?: QuizInstruction[]
+): Promise<QuizInstruction[]> {
+  // Backend now always includes the catalog; use it even when empty.
+  if (fromListing !== undefined) {
+    return fromListing;
+  }
+
+  try {
+    return await fetchQuizInstructionCatalogOnce(async () => {
+      const result = await quizInstructionService.list({
+        page: 1,
+        limit: 100,
+      });
+      return result.data;
+    }, "quiz-instructions:catalog");
+  } catch {
+    return [];
+  }
+}
 
 function matchesListFilters(
   episode: Pick<EpisodeListItem, "chapterId" | "title">,
@@ -83,8 +109,10 @@ function toListItem(
     processingError: episode.processingError,
     characterIds: episode.characterIds ?? [],
     locationIds: episode.locationIds ?? [],
+    quizInstructionIds: episode.quizInstructionIds ?? [],
     characters: episode.characters,
     locations: episode.locations,
+    quizInstructions: episode.quizInstructions,
     chapter,
     createdAt: episode.createdAt,
     updatedAt: episode.updatedAt,
@@ -105,6 +133,7 @@ function toEditableEpisode(row: EpisodeListItem): Episode {
     isPublished: row.isPublished ?? false,
     characterIds: row.characterIds ?? [],
     locationIds: row.locationIds ?? [],
+    quizInstructionIds: row.quizInstructionIds ?? [],
   };
 }
 
@@ -125,6 +154,9 @@ export function useEpisodes(initialChapterId = "") {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [quizInstructions, setQuizInstructions] = useState<QuizInstruction[]>(
+    []
+  );
   const [items, setItems] = useState<EpisodeListItem[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [chapterId, setChapterId] = useState(initialChapterId);
@@ -188,6 +220,9 @@ export function useEpisodes(initialChapterId = "") {
             setChapters(bootstrap.chapters);
             setCharacters(bootstrap.characters);
             setLocations(bootstrap.locations);
+            setQuizInstructions(
+              await loadQuizInstructionCatalog(bootstrap.quizInstructions)
+            );
           }
 
           const result = await fetchByChapterOnce(
@@ -225,6 +260,9 @@ export function useEpisodes(initialChapterId = "") {
           setChapters(result.chapters);
           setCharacters(result.characters);
           setLocations(result.locations);
+          setQuizInstructions(
+            await loadQuizInstructionCatalog(result.quizInstructions)
+          );
           setItems(
             normalizeEpisodeListItems(result.episodes, result.chapters)
           );
@@ -348,6 +386,7 @@ export function useEpisodes(initialChapterId = "") {
     chapters,
     characters,
     locations,
+    quizInstructions,
     items,
     pagination,
     totalCount,

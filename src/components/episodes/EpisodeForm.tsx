@@ -23,6 +23,9 @@ import type {
   UpdateEpisodeInput,
 } from "@/types/episode";
 
+const QUIZ_INSTRUCTION_MIN = 1;
+const QUIZ_INSTRUCTION_MAX = 4;
+
 /** Persist uploaded S3 URLs; allow clearing on update when user removes thumbnail. */
 function resolveThumbnailForSave(
   previewUrl: string,
@@ -60,7 +63,8 @@ function buildEpisodePayload(
   existingThumbnail: string | null | undefined,
   existingVideo: string | null | undefined,
   characterIds: string[],
-  locationIds: string[]
+  locationIds: string[],
+  quizInstructionIds: string[]
 ): CreateEpisodeInput | UpdateEpisodeInput {
   return {
     chapterId: readText(form, "chapterId"),
@@ -76,6 +80,7 @@ function buildEpisodePayload(
     isPublished: readCheckbox(form, "isPublished"),
     characterIds: characterIds.filter((id) => id.trim().length > 0),
     locationIds: locationIds.filter((id) => id.trim().length > 0),
+    quizInstructionIds: quizInstructionIds.filter((id) => id.trim().length > 0),
   };
 }
 
@@ -84,6 +89,7 @@ export function EpisodeForm({
   chapterOptions,
   characterOptions,
   locationOptions,
+  quizInstructionOptions,
   saving,
   creating,
   defaultDisplayOrder = 1,
@@ -94,6 +100,7 @@ export function EpisodeForm({
   chapterOptions: ChapterSelectOption[];
   characterOptions: { value: string; label: string }[];
   locationOptions: { value: string; label: string }[];
+  quizInstructionOptions: { value: string; label: string }[];
   saving: boolean;
   creating: boolean;
   defaultDisplayOrder?: number;
@@ -110,10 +117,33 @@ export function EpisodeForm({
   const [locationIds, setLocationIds] = useState<string[]>(
     episode?.locationIds ?? episode?.locations?.map((item) => item.id) ?? []
   );
+  const [quizInstructionIds, setQuizInstructionIds] = useState<string[]>(
+    episode?.quizInstructionIds ??
+      episode?.quizInstructions?.map((item) => item.id) ??
+      []
+  );
+  const [quizInstructionError, setQuizInstructionError] = useState<
+    string | null
+  >(null);
   const displayOrder = episode ? episode.orderIndex + 1 : defaultDisplayOrder;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const cleanedInstructions = quizInstructionIds.filter(
+      (id) => id.trim().length > 0
+    );
+
+    if (
+      cleanedInstructions.length < QUIZ_INSTRUCTION_MIN ||
+      cleanedInstructions.length > QUIZ_INSTRUCTION_MAX
+    ) {
+      setQuizInstructionError(
+        `Select between ${QUIZ_INSTRUCTION_MIN} and ${QUIZ_INSTRUCTION_MAX} quiz instructions.`
+      );
+      return;
+    }
+
+    setQuizInstructionError(null);
     const form = new FormData(event.currentTarget);
     const payload = buildEpisodePayload(
       form,
@@ -122,7 +152,8 @@ export function EpisodeForm({
       episode?.thumbnailUrl,
       episode?.videoUrl,
       characterIds,
-      locationIds
+      locationIds,
+      cleanedInstructions
     );
     await onSave(payload);
   }
@@ -191,6 +222,22 @@ export function EpisodeForm({
           emptyMessage="No locations yet — add them in Information."
         />
       </div>
+
+      <MultiSelect
+        label="Quiz instructions"
+        options={quizInstructionOptions}
+        value={quizInstructionIds}
+        onChange={(next) => {
+          setQuizInstructionIds(next);
+          if (quizInstructionError) setQuizInstructionError(null);
+        }}
+        placeholder="Select quiz instructions"
+        searchPlaceholder="Search quiz instructions…"
+        emptyMessage="No quiz instructions yet — add them in Information."
+        min={QUIZ_INSTRUCTION_MIN}
+        max={QUIZ_INSTRUCTION_MAX}
+        error={quizInstructionError}
+      />
 
       <div className="flex flex-wrap items-end gap-6">
         <div className="w-28 shrink-0">

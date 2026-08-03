@@ -9,6 +9,8 @@ const UPLOAD_TYPES = new Set<MediaImageUploadType>([
   "episode",
   "character",
   "location",
+  "quizInstruction",
+  "misc",
 ]);
 
 function parseUploadType(value: FormDataEntryValue | null): MediaImageUploadType {
