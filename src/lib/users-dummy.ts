@@ -1,4 +1,4 @@
-import { DEFAULT_LIMIT, DEFAULT_PAGE } from "@/lib/pagination";
+import { DEFAULT_LIMIT, DEFAULT_PAGE, normalizePaginatedResult } from "@/lib/pagination";
 import type { PaginatedResult, PaginationMeta } from "@/types/api";
 import type { User, UserListParams, UserProgress } from "@/types/user";
 
@@ -174,35 +174,38 @@ export function getDummyUserList(
 }
 
 /**
- * Keep server users untouched. Prepend matching dummy users for display only.
+ * Keep server users untouched. Prepend matching dummy users for display only,
+ * without exceeding the page `limit` or inventing broken page sizes.
  */
 export function combineUsersForDisplay(
   serverResult: PaginatedResult<User>,
   params: UserListParams = {}
 ): PaginatedResult<User> {
-  const page = serverResult.pagination?.page ?? params.page ?? DEFAULT_PAGE;
+  const page = params.page ?? DEFAULT_PAGE;
+  const limit = params.limit ?? DEFAULT_LIMIT;
+
+  const normalized = normalizePaginatedResult(serverResult, { page, limit });
   const dummyToShow = filterDummyUsers(params);
-  const serverIds = new Set(serverResult.data.map((user) => user.id));
+  const serverIds = new Set(normalized.data.map((user) => user.id));
   const uniqueDummy = dummyToShow.filter((user) => !serverIds.has(user.id));
 
+  const serverTotal = normalized.pagination?.total ?? normalized.data.length;
+  const total = serverTotal + uniqueDummy.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit) || 1);
+  const safePage = Math.min(page, totalPages);
+
   const data =
-    page === 1
-      ? [...uniqueDummy, ...serverResult.data]
-      : serverResult.data;
-
-  if (!serverResult.pagination) {
-    return { data };
-  }
-
-  const total = serverResult.pagination.total + uniqueDummy.length;
-  const limit = serverResult.pagination.limit;
+    safePage === 1 && uniqueDummy.length > 0
+      ? [...uniqueDummy, ...normalized.data].slice(0, limit)
+      : normalized.data.slice(0, limit);
 
   return {
     data,
     pagination: {
-      ...serverResult.pagination,
+      page: safePage,
+      limit,
       total,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
+      totalPages,
     },
   };
 }

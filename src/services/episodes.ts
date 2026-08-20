@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import { paths } from "@/lib/api/paths";
 import { buildQuery } from "@/lib/api/query";
-import { DEFAULT_LIMIT, DEFAULT_PAGE } from "@/lib/pagination";
+import { DEFAULT_LIMIT, DEFAULT_PAGE, normalizePaginatedResult } from "@/lib/pagination";
 import type {
   AdminEpisodeListingResponse,
   AdminEpisodesByChapterResponse,
@@ -39,11 +39,21 @@ export function normalizeEpisodeEntities<T extends Episode | EpisodeListItem>(
 }
 
 function normalizeListing(
-  result: AdminEpisodeListingResponse
+  result: AdminEpisodeListingResponse,
+  params: { page?: number; limit?: number } = {}
 ): AdminEpisodeListingResponse {
+  const paged = normalizePaginatedResult(
+    { data: result.episodes, pagination: result.pagination },
+    {
+      page: params.page ?? DEFAULT_PAGE,
+      limit: params.limit ?? DEFAULT_LIMIT,
+    }
+  );
+
   return {
     ...result,
-    episodes: result.episodes.map(normalizeEpisodeEntities),
+    episodes: paged.data.map(normalizeEpisodeEntities),
+    pagination: paged.pagination ?? result.pagination,
   };
 }
 
@@ -71,7 +81,7 @@ export const episodeService = {
           limit: params.limit ?? DEFAULT_LIMIT,
         })}`
       )
-      .then(normalizeListing),
+      .then((result) => normalizeListing(result, params)),
 
   /** Chapter filter — episodes only (catalogs already loaded from listing). */
   adminByChapter: (params: {

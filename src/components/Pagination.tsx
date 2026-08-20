@@ -15,6 +15,7 @@ export function Pagination({
   summary?: string;
 }) {
   if (pagination.totalPages <= 1) return null;
+  if (pagination.limit > 0 && pagination.total <= pagination.limit) return null;
 
   return (
     <div className="flex flex-col gap-3 border-t border-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AvatarStatusFilter } from "@/components/avatars/AvatarFiltersBar";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
@@ -27,22 +26,6 @@ function matchesSearch(name: string, search: string): boolean {
   return name.toLowerCase().includes(search.toLowerCase());
 }
 
-function matchesStatusFilter(
-  isActive: boolean,
-  filter: AvatarStatusFilter
-): boolean {
-  if (filter === "all") return true;
-  return filter === "active" ? isActive : !isActive;
-}
-
-function resolveIsActiveParam(
-  filter: AvatarStatusFilter
-): boolean | undefined {
-  if (filter === "active") return true;
-  if (filter === "inactive") return false;
-  return undefined;
-}
-
 function bumpPagination(
   current: PaginationMeta | null,
   delta: number
@@ -61,7 +44,6 @@ export function useAvatars() {
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
-  const [statusFilter, setStatusFilter] = useState<AvatarStatusFilter>("all");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,18 +51,16 @@ export function useAvatars() {
   const editor = useEditorState<Avatar>();
   const mutation = useMutationState();
   const searchTerm = debouncedSearch.trim();
-  const hasActiveFilters = Boolean(searchTerm) || statusFilter !== "all";
-  const filtersRef = useRef({ searchTerm: "", statusFilter: "all" as AvatarStatusFilter });
+  const hasActiveFilters = Boolean(searchTerm);
+  const filtersRef = useRef({ searchTerm: "" });
   const lastFetchKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const filtersChanged =
-      filtersRef.current.searchTerm !== searchTerm ||
-      filtersRef.current.statusFilter !== statusFilter;
+    const filtersChanged = filtersRef.current.searchTerm !== searchTerm;
     if (filtersChanged) {
-      filtersRef.current = { searchTerm, statusFilter };
+      filtersRef.current = { searchTerm };
       if (page !== 1) {
         setPage(1);
         return;
@@ -88,7 +68,7 @@ export function useAvatars() {
     }
 
     const pageToLoad = filtersChanged ? 1 : page;
-    const fetchKey = `avatars:${pageToLoad}:${searchTerm}:${statusFilter}`;
+    const fetchKey = `avatars:${pageToLoad}:${searchTerm}`;
 
     if (lastFetchKeyRef.current === fetchKey) {
       setLoading(false);
@@ -103,7 +83,6 @@ export function useAvatars() {
           () =>
             avatarService.list({
               search: searchTerm || undefined,
-              isActive: resolveIsActiveParam(statusFilter),
               page: pageToLoad,
               limit: DEFAULT_LIMIT,
             }),
@@ -125,7 +104,7 @@ export function useAvatars() {
     return () => {
       cancelled = true;
     };
-  }, [searchTerm, statusFilter, page]);
+  }, [searchTerm, page]);
 
   const startEdit = (id: string) => {
     mutation.clearError();
@@ -142,10 +121,7 @@ export function useAvatars() {
       async () => {
         const created = await avatarService.create(data);
 
-        if (
-          matchesSearch(created.name, searchTerm) &&
-          matchesStatusFilter(created.isActive, statusFilter)
-        ) {
+        if (matchesSearch(created.name, searchTerm)) {
           if (page === 1) {
             setItems((prev) => [created, ...prev].slice(0, DEFAULT_LIMIT));
           }
@@ -165,9 +141,7 @@ export function useAvatars() {
     await mutation.run(
       async () => {
         const updated = await avatarService.update(id, data);
-        const visible =
-          matchesSearch(updated.name, searchTerm) &&
-          matchesStatusFilter(updated.isActive, statusFilter);
+        const visible = matchesSearch(updated.name, searchTerm);
 
         setItems((prev) => {
           const exists = prev.some((item) => item.id === id);
@@ -207,8 +181,6 @@ export function useAvatars() {
     searchInput,
     setSearchInput,
     clearSearch: () => setSearchInput(""),
-    statusFilter,
-    setStatusFilter,
     hasActiveFilters,
     page,
     setPage,

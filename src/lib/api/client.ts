@@ -2,6 +2,7 @@ import { getClientApiBaseUrl } from "./config";
 import { authFetch, extractErrorMessage } from "./auth-fetch";
 import { ApiError } from "./errors";
 import { unwrapApiResponse, unwrapListResponse } from "./response";
+import { normalizePaginatedResult, parseListQueryParams } from "@/lib/pagination";
 import type { PaginatedResult } from "@/types/api";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
@@ -90,7 +91,8 @@ export async function apiList<T>(
     },
   });
 
-  return parseListResponse<T>(response);
+  const result = await parseListResponse<T>(response);
+  return normalizePaginatedResult(result, parseListQueryParams(path));
 }
 
 /** Multipart upload with the same auth retry behavior as JSON requests. */

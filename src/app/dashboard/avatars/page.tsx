@@ -25,8 +25,6 @@ export default function AvatarsPage() {
     searchInput,
     setSearchInput,
     clearSearch,
-    statusFilter,
-    setStatusFilter,
     hasActiveFilters,
     page,
     setPage,
@@ -107,8 +105,6 @@ export default function AvatarsPage() {
         search={searchInput}
         onSearchChange={setSearchInput}
         onSearchClear={clearSearch}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
       />
 
       {error && <ErrorBanner message={error} />}
@@ -120,7 +116,7 @@ export default function AvatarsPage() {
           message="No avatars found"
           hint={
             hasActiveFilters
-              ? "Try adjusting your search or filters."
+              ? "Try adjusting your search."
               : "Upload your first avatar for users to select in the app."
           }
         />
