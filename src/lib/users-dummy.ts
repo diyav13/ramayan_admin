@@ -97,6 +97,7 @@ export const DUMMY_USERS: User[] = [
     email: DUMMY_PREMIUM_USER_EMAIL,
     phone: "+91 98765 43210",
     avatarUrl: null,
+    selectedAvatar: null,
     role: "USER",
     accountType: "REGISTERED",
     isPremium: true,

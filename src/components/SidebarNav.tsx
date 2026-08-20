@@ -9,6 +9,7 @@ const navItems = [
   { label: "Episodes", href: "/dashboard/episodes" },
   { label: "Quizzes", href: "/dashboard/quizzes" },
   { label: "Information", href: "/dashboard/information" },
+  { label: "Avatars", href: "/dashboard/avatars" },
   { label: "Users", href: "/dashboard/users" },
   { label: "Settings", href: "#" },
 ];

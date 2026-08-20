@@ -1,5 +1,13 @@
+import type { Avatar } from "@/types/avatar";
+
 export type UserRole = "USER" | "ADMIN";
 export type AccountType = "REGISTERED" | "GUEST";
+
+/** Catalog match for the user's current avatar URL; null for OAuth / legacy URLs. */
+export type SelectedAvatar = Pick<
+  Avatar,
+  "id" | "name" | "imageUrl" | "isActive"
+>;
 
 export interface User {
   id: string;
@@ -7,6 +15,7 @@ export interface User {
   email: string | null;
   name: string | null;
   avatarUrl: string | null;
+  selectedAvatar: SelectedAvatar | null;
   role: UserRole;
   accountType: AccountType;
   isPremium: boolean;

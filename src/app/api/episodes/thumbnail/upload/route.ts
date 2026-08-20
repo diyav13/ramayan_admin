@@ -10,6 +10,7 @@ const UPLOAD_TYPES = new Set<MediaImageUploadType>([
   "character",
   "location",
   "quizInstruction",
+  "avatar",
   "misc",
 ]);
 

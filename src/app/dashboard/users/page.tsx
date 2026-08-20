@@ -121,6 +121,16 @@ export default function UsersPage() {
                       <p className="truncate text-xs text-[var(--text-muted)]">
                         {user.email ?? "—"}
                       </p>
+                      {user.selectedAvatar ? (
+                        <p className="truncate text-xs text-[var(--gold)]">
+                          Avatar: {user.selectedAvatar.name}
+                          {!user.selectedAvatar.isActive ? " (inactive)" : ""}
+                        </p>
+                      ) : user.avatarUrl ? (
+                        <p className="truncate text-xs text-[var(--text-muted)]">
+                          Custom avatar (not in catalog)
+                        </p>
+                      ) : null}
                       <UserProgressDetails user={user} />
                     </div>
                   </div>

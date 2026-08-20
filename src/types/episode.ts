@@ -166,7 +166,7 @@ export interface EpisodeThumbnailUploadUrlInput {
   fileName: string;
   contentType: string;
   /** Asset folder — episode (default), character, location, or quiz instruction. */
-  type?: "episode" | "character" | "location" | "quizInstruction" | "misc";
+  type?: "episode" | "character" | "location" | "quizInstruction" | "avatar" | "misc";
   /** Existing character / location / quiz-instruction / episode id for the S3 folder. */
   entityId?: string;
   /** Omit for create (draft folder); pass when replacing an existing episode thumbnail. */

@@ -40,6 +40,35 @@ export function UserForm({
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
+      {user.avatarUrl || user.selectedAvatar ? (
+        <div className="flex items-center gap-3 rounded-lg border border-white/5 bg-[var(--surface-alt)] p-4">
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt=""
+              className="size-14 shrink-0 rounded-full object-cover ring-1 ring-white/10"
+            />
+          ) : (
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] text-lg font-bold text-[var(--gold)] ring-1 ring-white/10">
+              ?
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white">Selected avatar</p>
+            {user.selectedAvatar ? (
+              <p className="truncate text-sm text-[var(--gold)]">
+                {user.selectedAvatar.name}
+                {!user.selectedAvatar.isActive ? " (inactive)" : ""}
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">
+                Custom image — not linked to the avatar catalog
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Name" name="name" defaultValue={user.name ?? ""} />
         <Input

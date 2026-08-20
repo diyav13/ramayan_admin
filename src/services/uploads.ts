@@ -168,9 +168,12 @@ export const uploadService = {
   /** Character, location, or quiz-instruction image. */
   entityImage: (
     file: File,
-    type: "character" | "location" | "quizInstruction",
+    type: "character" | "location" | "quizInstruction" | "misc",
     entityId?: string
   ) => uploadMediaImage(file, { type, entityId }),
+  /** Avatar catalog image — stored under `assets/avatars/`. */
+  avatarImage: (file: File, entityId?: string) =>
+    uploadMediaImage(file, { type: "avatar", entityId }),
   quizImage: (file: File, options: QuizImageUploadOptions) =>
     uploadQuizImage(file, options),
 };
