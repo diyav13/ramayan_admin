@@ -25,8 +25,7 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      router.push("/dashboard");
-      router.refresh();
+      router.replace("/dashboard");
     } catch (err) {
       setError(getAuthErrorMessage(err));
       setLoading(false);
@@ -34,14 +33,14 @@ export default function LoginPage() {
   }
 
   return (
-    <Background className="flex items-center justify-center px-4 py-12">
+    <Background className="flex min-h-dvh items-center justify-center overflow-y-auto px-4 py-12">
       <div className="w-full max-w-sm">
         <Logo />
 
-        <h1 className="mt-10 text-[22px] font-bold tracking-tight">
+        <h1 className="mt-10 text-[1.75rem] font-semibold tracking-[-0.01em]">
           Admin Sign In
         </h1>
-        <p className="mt-2 text-sm text-[#a9a9a9]">
+        <p className="subtitle-text mt-2.5">
           Enter your admin email and password
         </p>
 

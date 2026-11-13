@@ -67,7 +67,7 @@ export function QuizInstructionForm({
           name="instruction"
           defaultValue={entity?.instruction ?? ""}
           required
-          placeholder="e.g. Tap the correct answer before time runs out."
+          placeholder="Enter quiz instruction text"
         />
       </div>
 

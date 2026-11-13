@@ -12,6 +12,7 @@ export function SearchInput({
   value,
   onClear,
   placeholder = "Search…",
+  disabled,
   ...props
 }: SearchInputProps) {
   const hasValue = String(value ?? "").length > 0;
@@ -25,10 +26,11 @@ export function SearchInput({
         type="search"
         value={value}
         placeholder={placeholder}
-        className={`${controlClass} h-10 w-full py-2 pl-10 pr-9 text-sm [&::-webkit-search-cancel-button]:hidden`}
+        disabled={disabled}
+        className={`${controlClass} h-10 w-full py-2 pl-10 pr-9 text-sm disabled:cursor-not-allowed disabled:opacity-60 [&::-webkit-search-cancel-button]:hidden`}
         {...props}
       />
-      {hasValue && onClear && (
+      {hasValue && onClear && !disabled && (
         <button
           type="button"
           onClick={onClear}

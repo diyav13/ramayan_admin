@@ -13,11 +13,13 @@ export function Field({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={htmlFor} className="text-sm text-[var(--text-muted)]">
+      <label htmlFor={htmlFor} className="label-text">
         {label}
       </label>
       {description ? (
-        <p className="text-xs text-[var(--text-muted)]">{description}</p>
+        <p className="text-xs leading-snug tracking-wide text-[var(--text-muted)]">
+          {description}
+        </p>
       ) : null}
       {children}
     </div>
@@ -26,4 +28,4 @@ export function Field({
 
 /** Shared base classes for text-like controls (inputs, selects, textareas). */
 export const controlClass =
-  "w-full rounded bg-[var(--surface)] text-sm text-white placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--gold)]";
+  "control-text w-full rounded bg-[var(--surface)] text-white placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--gold)]";

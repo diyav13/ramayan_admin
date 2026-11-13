@@ -14,12 +14,13 @@ export type MediaImageUploadType =
   | "episode"
   | "character"
   | "location"
+  | "event"
   | "quizInstruction"
   | "avatar"
   | "misc";
 
 export type MediaImageUploadOptions = {
-  /** Asset folder: episode (default), character, location, avatar, or quiz instruction (`misc` alias). */
+  /** Asset folder: episode (default), character, location, event, avatar, or quiz instruction (`misc` alias). */
   type?: MediaImageUploadType;
   /** Existing episode id (legacy field still accepted by the upload-url API). */
   episodeId?: string;

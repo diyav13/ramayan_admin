@@ -144,8 +144,8 @@ export function QuizForm({
   const episodePlaceholder = episodesLoading
     ? "Loading episodes…"
     : chapterId
-      ? "Select episode"
-      : "Select chapter first";
+      ? "Choose an episode"
+      : "Choose a chapter first";
 
   useEffect(() => {
     if (didInitChapterRef.current) return;
@@ -253,6 +253,7 @@ export function QuizForm({
           value={chapterId}
           onChange={handleChapterChange}
           required
+          placeholder="Choose a chapter"
         />
         <div>
           <DarkSelectField
@@ -293,6 +294,7 @@ export function QuizForm({
         defaultValue={quiz?.question ?? ""}
         required
         rows={3}
+        placeholder="Enter quiz question"
       />
 
       {type === "TRUE_FALSE" && (
@@ -332,7 +334,7 @@ export function QuizForm({
         name="description"
         defaultValue={quiz?.description ?? ""}
         rows={2}
-        placeholder="Optional explanation shown after answering"
+        placeholder="Enter optional explanation shown after answering"
       />
 
       <div className="pb-1">

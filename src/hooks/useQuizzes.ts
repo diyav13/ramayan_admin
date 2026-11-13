@@ -5,7 +5,15 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
 import { createInflightDedupe } from "@/lib/api/inflight";
+import {
+  createSessionCache,
+  type ListCachePayload,
+} from "@/lib/api/session-cache";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  getCachedChapters,
+  setCachedChapters,
+} from "@/lib/cache/chapters";
 import {
   computePageRange,
   DEFAULT_LIMIT,
@@ -30,9 +38,7 @@ const fetchQuizzesOnce = createInflightDedupe<PaginatedResult<QuizListItem>>();
 const fetchQuizOnce = createInflightDedupe<Quiz>();
 const fetchChaptersOnce = createInflightDedupe<Chapter[]>();
 const fetchEpisodesOnce = createInflightDedupe<EpisodeListItem[]>();
-
-/** Survives Strict Mode remounts — chapters loaded once per page session. */
-let chaptersCache: Chapter[] | null = null;
+const quizzesListCache = createSessionCache<ListCachePayload<QuizListItem>>("quizzes");
 
 /** Episodes by chapter — shared by list filter and edit/create form. */
 const episodesByChapterCache = new Map<string, EpisodeListItem[]>();
@@ -155,25 +161,42 @@ export function useQuizzes(
   initialChapterId = "",
   initialEpisodeId = ""
 ) {
-  const [chapters, setChapters] = useState<Chapter[]>(() => chaptersCache ?? []);
+  const cachedChapters = getCachedChapters();
+  const defaultQuizKey = [
+    "quizzes",
+    initialChapterId,
+    initialEpisodeId,
+    "",
+    "",
+    !initialChapterId && !initialEpisodeId ? 1 : "all",
+  ].join(":");
+  const initialQuizzes = quizzesListCache.get(defaultQuizKey);
+
+  const [chapters, setChapters] = useState<Chapter[]>(
+    () => cachedChapters ?? []
+  );
   const [episodes, setEpisodes] = useState<EpisodeListItem[]>([]);
   const [formEpisodes, setFormEpisodes] = useState<EpisodeListItem[]>([]);
-  const [items, setItems] = useState<QuizListItem[]>([]);
-  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
+  const [items, setItems] = useState<QuizListItem[]>(
+    () => initialQuizzes?.data.items ?? []
+  );
+  const [pagination, setPagination] = useState<PaginationMeta | null>(
+    () => initialQuizzes?.data.pagination ?? null
+  );
   const [chapterId, setChapterId] = useState(initialChapterId);
   const [episodeId, setEpisodeId] = useState(initialEpisodeId);
   const [typeFilter, setTypeFilter] = useState<QuizType | "">("");
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialQuizzes);
   const [error, setError] = useState<string | null>(null);
   const [episodesLoading, setEpisodesLoading] = useState(false);
   const [formEpisodesLoading, setFormEpisodesLoading] = useState(false);
 
   const editor = useEditorState<Quiz>();
   const mutation = useMutationState();
-  const chaptersRef = useRef<Chapter[]>(chaptersCache ?? []);
+  const chaptersRef = useRef<Chapter[]>(cachedChapters ?? []);
 
   const isPaginated = !chapterId && !episodeId;
   const searchTerm = debouncedSearch.trim();
@@ -188,22 +211,23 @@ export function useQuizzes(
   });
 
   const ensureChapters = useCallback(async (): Promise<Chapter[]> => {
-    if (chaptersCache && chaptersCache.length > 0) {
-      chaptersRef.current = chaptersCache;
-      setChapters(chaptersCache);
-      return chaptersCache;
+    const existing = getCachedChapters();
+    if (existing && existing.length > 0) {
+      chaptersRef.current = existing;
+      setChapters(existing);
+      return existing;
     }
 
     try {
       const chapterList = await fetchChaptersOnce(() =>
         chapterService.getAllAdmin()
       );
-      chaptersCache = chapterList;
+      setCachedChapters(chapterList);
       chaptersRef.current = chapterList;
       setChapters(chapterList);
       return chapterList;
     } catch {
-      chaptersCache = [];
+      setCachedChapters([]);
       chaptersRef.current = [];
       setChapters([]);
       return [];
@@ -283,6 +307,29 @@ export function useQuizzes(
     const pageToLoad = filtersChanged ? 1 : page;
     const paginated = !chapterId && !episodeId;
 
+    const quizKey = [
+      "quizzes",
+      chapterId,
+      episodeId,
+      typeFilter,
+      searchTerm,
+      paginated ? pageToLoad : "all",
+    ].join(":");
+
+    const cachedList = quizzesListCache.get(quizKey);
+    if (cachedList) {
+      void ensureChapters();
+      if (chapterId) {
+        void loadEpisodesForChapter(chapterId, "filter");
+      } else {
+        setEpisodes([]);
+      }
+      setItems(cachedList.data.items);
+      setPagination(cachedList.data.pagination);
+      setLoading(false);
+      return;
+    }
+
     async function load() {
       setLoading(true);
       setError(null);
@@ -300,15 +347,6 @@ export function useQuizzes(
           limit: paginated ? DEFAULT_LIMIT : undefined,
         };
 
-        const quizKey = [
-          "quizzes",
-          chapterId,
-          episodeId,
-          typeFilter,
-          searchTerm,
-          paginated ? pageToLoad : "all",
-        ].join(":");
-
         const [, result] = await Promise.all([
           chapterId
             ? loadEpisodesForChapter(chapterId, "filter")
@@ -321,8 +359,13 @@ export function useQuizzes(
 
         if (cancelled) return;
 
-        setItems(result.data);
-        setPagination(result.pagination ?? null);
+        const payload = {
+          items: result.data,
+          pagination: result.pagination ?? null,
+        };
+        quizzesListCache.set(payload, quizKey);
+        setItems(payload.items);
+        setPagination(payload.pagination);
       } catch (err) {
         if (cancelled) return;
         setError(getErrorMessage(err, "Failed to load quizzes"));

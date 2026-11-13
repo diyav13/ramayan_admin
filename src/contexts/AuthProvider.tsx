@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import type { AuthUser, LoginCredentials } from "@/types/auth";
 import { getErrorMessage } from "@/lib/api/errors";
+import { clearAllSessionCaches } from "@/lib/api/session-cache";
 import {
   getStoredUser,
   hasSession,
@@ -68,10 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await logoutRequest();
+    clearAllSessionCaches();
     authHydration = { user: null, ready: true };
     setUser(null);
-    router.push("/login");
-    router.refresh();
+    router.replace("/login");
   }, [router]);
 
   const value = useMemo<AuthContextValue>(

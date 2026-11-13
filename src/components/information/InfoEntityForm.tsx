@@ -95,13 +95,13 @@ export function InfoEntityForm({
             name="name"
             defaultValue={entity?.name}
             required
-            placeholder={`${entityLabel} name`}
+            placeholder={`Enter ${entityLabel.toLowerCase()} name`}
           />
           <Textarea
             label="Description"
             name="description"
             defaultValue={entity?.description ?? ""}
-            placeholder={`Short description of this ${entityLabel.toLowerCase()}`}
+            placeholder={`Enter ${entityLabel.toLowerCase()} description`}
           />
         </div>
       </div>

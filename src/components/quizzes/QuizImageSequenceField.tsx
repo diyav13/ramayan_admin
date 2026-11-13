@@ -333,7 +333,7 @@ export function QuizImageSequenceField({
                   type="text"
                   value={item.text}
                   onChange={(event) => updateText(index, event.target.value)}
-                  placeholder="Optional label or description"
+                  placeholder="Enter optional label or description"
                   disabled={isUploading}
                   className="h-11 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-0 disabled:opacity-60"
                 />

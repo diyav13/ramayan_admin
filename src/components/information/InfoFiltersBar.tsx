@@ -7,11 +7,13 @@ export function InfoFiltersBar({
   onSearchChange,
   onSearchClear,
   placeholder = "Search…",
+  disabled = false,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
   onSearchClear: () => void;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   return (
     <SearchInput
@@ -19,6 +21,7 @@ export function InfoFiltersBar({
       onChange={(event) => onSearchChange(event.target.value)}
       onClear={onSearchClear}
       placeholder={placeholder}
+      disabled={disabled}
     />
   );
 }

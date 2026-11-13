@@ -52,6 +52,10 @@ export const paths = {
     root: "/locations",
     byId: (id: string) => `/locations/${id}`,
   },
+  events: {
+    root: "/events",
+    byId: (id: string) => `/events/${id}`,
+  },
   quizInstructions: {
     root: "/quiz-instructions",
     byId: (id: string) => `/quiz-instructions/${id}`,

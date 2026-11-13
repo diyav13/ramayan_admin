@@ -161,13 +161,20 @@ export function EpisodeForm({
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input label="Title" name="title" defaultValue={episode?.title} required />
+        <Input
+          label="Title"
+          name="title"
+          defaultValue={episode?.title}
+          required
+          placeholder="Enter episode title"
+        />
         <ChapterSelectField
           label="Chapter"
           name="chapterId"
           options={chapterOptions}
           defaultValue={episode?.chapterId ?? chapterOptions[0]?.value}
           required
+          placeholder="Choose a chapter"
         />
       </div>
 
@@ -175,30 +182,31 @@ export function EpisodeForm({
         label="Description"
         name="description"
         defaultValue={episode?.description ?? ""}
+        placeholder="Enter episode description"
       />
 
       <Textarea
         label="Moral of the Story"
         name="moralOfTheStory"
         defaultValue={episode?.moralOfTheStory ?? ""}
-        placeholder="e.g. Honesty and courage lead to the right path."
+        placeholder="Enter the moral or key takeaway"
       />
 
       <div className="rounded-lg border border-white/10 bg-[var(--surface)]/40 p-4 space-y-4">
-        <p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+        <p className="label-text">
           Info tab (app)
         </p>
         <Input
           label="Info title"
           name="infoTitle"
           defaultValue={episode?.infoTitle ?? ""}
-          placeholder="e.g. Birth Of The Four Brothers"
+          placeholder="Enter info tab title"
         />
         <Textarea
           label="Info description"
           name="infoDescription"
           defaultValue={episode?.infoDescription ?? ""}
-          placeholder="Story context shown in the app INFO tab…"
+          placeholder="Enter info tab description"
         />
       </div>
 
@@ -208,7 +216,7 @@ export function EpisodeForm({
           options={characterOptions}
           value={characterIds}
           onChange={setCharacterIds}
-          placeholder="Select characters"
+          placeholder="Choose characters"
           searchPlaceholder="Search characters…"
           emptyMessage="No characters yet — add them in Information."
         />
@@ -217,7 +225,7 @@ export function EpisodeForm({
           options={locationOptions}
           value={locationIds}
           onChange={setLocationIds}
-          placeholder="Select locations"
+          placeholder="Choose locations"
           searchPlaceholder="Search locations…"
           emptyMessage="No locations yet — add them in Information."
         />
@@ -231,7 +239,7 @@ export function EpisodeForm({
           setQuizInstructionIds(next);
           if (quizInstructionError) setQuizInstructionError(null);
         }}
-        placeholder="Select quiz instructions"
+        placeholder="Choose quiz instructions"
         searchPlaceholder="Search quiz instructions…"
         emptyMessage="No quiz instructions yet — add them in Information."
         min={QUIZ_INSTRUCTION_MIN}
@@ -247,6 +255,7 @@ export function EpisodeForm({
             type="number"
             min={1}
             defaultValue={displayOrder}
+            placeholder="Enter display order"
           />
         </div>
         <div className="w-36 shrink-0">

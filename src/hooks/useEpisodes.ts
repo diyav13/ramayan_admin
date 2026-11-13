@@ -5,7 +5,15 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
 import { createInflightDedupe } from "@/lib/api/inflight";
+import {
+  createSessionCache,
+  type ListCachePayload,
+} from "@/lib/api/session-cache";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  getCachedChapters,
+  setCachedChapters,
+} from "@/lib/cache/chapters";
 import { normalizeEpisodeListItems } from "@/lib/episodes";
 import {
   computePageRange,
@@ -26,6 +34,13 @@ import type {
 import type { Location } from "@/types/location";
 import type { QuizInstruction } from "@/types/quiz-instruction";
 
+type EpisodeListingCache = ListCachePayload<EpisodeListItem> & {
+  chapters: Chapter[];
+  characters: Character[];
+  locations: Location[];
+  quizInstructions: QuizInstruction[];
+};
+
 const fetchListingOnce = createInflightDedupe<
   Awaited<ReturnType<typeof episodeService.adminListing>>
 >();
@@ -35,6 +50,30 @@ const fetchByChapterOnce = createInflightDedupe<
 const fetchQuizInstructionCatalogOnce = createInflightDedupe<
   QuizInstruction[]
 >();
+const episodesCache = createSessionCache<EpisodeListingCache>("episodes");
+
+type EpisodeCatalogs = {
+  chapters: Chapter[];
+  characters: Character[];
+  locations: Location[];
+  quizInstructions: QuizInstruction[];
+};
+
+const EPISODE_CATALOGS_KEY = "__ramayan_episode_catalogs__";
+
+function getEpisodeCatalogs(): EpisodeCatalogs | null {
+  const globalRef = globalThis as typeof globalThis & {
+    [EPISODE_CATALOGS_KEY]?: EpisodeCatalogs | null;
+  };
+  return globalRef[EPISODE_CATALOGS_KEY] ?? null;
+}
+
+function setEpisodeCatalogs(catalogs: EpisodeCatalogs | null): void {
+  const globalRef = globalThis as typeof globalThis & {
+    [EPISODE_CATALOGS_KEY]?: EpisodeCatalogs | null;
+  };
+  globalRef[EPISODE_CATALOGS_KEY] = catalogs;
+}
 
 async function loadQuizInstructionCatalog(
   fromListing?: QuizInstruction[]
@@ -150,26 +189,73 @@ function bumpPagination(
   };
 }
 
+function applyCatalogs(
+  catalogs: EpisodeCatalogs,
+  setters: {
+    setChapters: (v: Chapter[]) => void;
+    setCharacters: (v: Character[]) => void;
+    setLocations: (v: Location[]) => void;
+    setQuizInstructions: (v: QuizInstruction[]) => void;
+    chaptersRef: { current: Chapter[] };
+  }
+) {
+  setEpisodeCatalogs(catalogs);
+  setters.chaptersRef.current = catalogs.chapters;
+  setters.setChapters(catalogs.chapters);
+  setters.setCharacters(catalogs.characters);
+  setters.setLocations(catalogs.locations);
+  setters.setQuizInstructions(catalogs.quizInstructions);
+  if (catalogs.chapters.length > 0) {
+    setCachedChapters(catalogs.chapters);
+  }
+}
+
 export function useEpisodes(initialChapterId = "") {
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [quizInstructions, setQuizInstructions] = useState<QuizInstruction[]>(
-    []
+  const cachedChapters = getCachedChapters();
+  const defaultKey = initialChapterId
+    ? `bychapter:${initialChapterId}:`
+    : "listing:1:";
+  const initialListing = episodesCache.get(defaultKey);
+
+  const catalogsSeed = getEpisodeCatalogs();
+  const [chapters, setChapters] = useState<Chapter[]>(
+    () =>
+      initialListing?.data.chapters ??
+      catalogsSeed?.chapters ??
+      cachedChapters ??
+      []
   );
-  const [items, setItems] = useState<EpisodeListItem[]>([]);
-  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
+  const [characters, setCharacters] = useState<Character[]>(
+    () =>
+      initialListing?.data.characters ?? catalogsSeed?.characters ?? []
+  );
+  const [locations, setLocations] = useState<Location[]>(
+    () => initialListing?.data.locations ?? catalogsSeed?.locations ?? []
+  );
+  const [quizInstructions, setQuizInstructions] = useState<QuizInstruction[]>(
+    () =>
+      initialListing?.data.quizInstructions ??
+      catalogsSeed?.quizInstructions ??
+      []
+  );
+  const [items, setItems] = useState<EpisodeListItem[]>(
+    () => initialListing?.data.items ?? []
+  );
+  const [pagination, setPagination] = useState<PaginationMeta | null>(
+    () => initialListing?.data.pagination ?? null
+  );
   const [chapterId, setChapterId] = useState(initialChapterId);
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialListing);
   const [error, setError] = useState<string | null>(null);
 
   const editor = useEditorState<Episode>();
   const mutation = useMutationState();
-  const chaptersRef = useRef<Chapter[]>([]);
-  const catalogsReadyRef = useRef(false);
+  const chaptersRef = useRef<Chapter[]>(
+    catalogsSeed?.chapters ?? cachedChapters ?? []
+  );
 
   const isPaginated = !chapterId;
   const hasActiveFilters = Boolean(chapterId || debouncedSearch.trim());
@@ -196,6 +282,32 @@ export function useEpisodes(initialChapterId = "") {
     }
 
     const pageToLoad = filtersChanged ? 1 : page;
+    const fetchKey = chapterId
+      ? `bychapter:${chapterId}:${searchTerm}`
+      : `listing:${pageToLoad}:${searchTerm}`;
+
+    const cached = episodesCache.get(fetchKey);
+    if (cached) {
+      applyCatalogs(
+        {
+          chapters: cached.data.chapters,
+          characters: cached.data.characters,
+          locations: cached.data.locations,
+          quizInstructions: cached.data.quizInstructions,
+        },
+        {
+          setChapters,
+          setCharacters,
+          setLocations,
+          setQuizInstructions,
+          chaptersRef,
+        }
+      );
+      setItems(cached.data.items);
+      setPagination(cached.data.pagination);
+      setLoading(false);
+      return;
+    }
 
     async function load() {
       setLoading(true);
@@ -203,8 +315,8 @@ export function useEpisodes(initialChapterId = "") {
 
       try {
         if (chapterId) {
-          let chapterList = chaptersRef.current;
-          if (!catalogsReadyRef.current || chapterList.length === 0) {
+          let catalogs = getEpisodeCatalogs();
+          if (!catalogs || catalogs.chapters.length === 0) {
             const bootstrap = await fetchListingOnce(
               () =>
                 episodeService.adminListing({
@@ -214,15 +326,29 @@ export function useEpisodes(initialChapterId = "") {
               "listing:bootstrap"
             );
             if (cancelled) return;
-            chapterList = bootstrap.chapters;
-            chaptersRef.current = chapterList;
-            catalogsReadyRef.current = true;
-            setChapters(bootstrap.chapters);
-            setCharacters(bootstrap.characters);
-            setLocations(bootstrap.locations);
-            setQuizInstructions(
-              await loadQuizInstructionCatalog(bootstrap.quizInstructions)
-            );
+            catalogs = {
+              chapters: bootstrap.chapters,
+              characters: bootstrap.characters,
+              locations: bootstrap.locations,
+              quizInstructions: await loadQuizInstructionCatalog(
+                bootstrap.quizInstructions
+              ),
+            };
+            applyCatalogs(catalogs, {
+              setChapters,
+              setCharacters,
+              setLocations,
+              setQuizInstructions,
+              chaptersRef,
+            });
+          } else {
+            applyCatalogs(catalogs, {
+              setChapters,
+              setCharacters,
+              setLocations,
+              setQuizInstructions,
+              chaptersRef,
+            });
           }
 
           const result = await fetchByChapterOnce(
@@ -231,17 +357,22 @@ export function useEpisodes(initialChapterId = "") {
                 chapterId,
                 search: searchTerm || undefined,
               }),
-            `bychapter:${chapterId}:${searchTerm}`
+            fetchKey
           );
           if (cancelled) return;
 
-          setItems(
-            normalizeEpisodeListItems(
-              result.episodes,
-              chapterList,
-              chapterId
-            )
+          const nextItems = normalizeEpisodeListItems(
+            result.episodes,
+            catalogs.chapters,
+            chapterId
           );
+          const payload: EpisodeListingCache = {
+            items: nextItems,
+            pagination: null,
+            ...catalogs,
+          };
+          episodesCache.set(payload, fetchKey);
+          setItems(nextItems);
           setPagination(null);
         } else {
           const result = await fetchListingOnce(
@@ -251,21 +382,37 @@ export function useEpisodes(initialChapterId = "") {
                 page: pageToLoad,
                 limit: DEFAULT_LIMIT,
               }),
-            `listing:${pageToLoad}:${searchTerm}`
+            fetchKey
           );
           if (cancelled) return;
 
-          chaptersRef.current = result.chapters;
-          catalogsReadyRef.current = true;
-          setChapters(result.chapters);
-          setCharacters(result.characters);
-          setLocations(result.locations);
-          setQuizInstructions(
-            await loadQuizInstructionCatalog(result.quizInstructions)
+          const catalogs: EpisodeCatalogs = {
+            chapters: result.chapters,
+            characters: result.characters,
+            locations: result.locations,
+            quizInstructions: await loadQuizInstructionCatalog(
+              result.quizInstructions
+            ),
+          };
+          applyCatalogs(catalogs, {
+            setChapters,
+            setCharacters,
+            setLocations,
+            setQuizInstructions,
+            chaptersRef,
+          });
+
+          const nextItems = normalizeEpisodeListItems(
+            result.episodes,
+            result.chapters
           );
-          setItems(
-            normalizeEpisodeListItems(result.episodes, result.chapters)
-          );
+          const payload: EpisodeListingCache = {
+            items: nextItems,
+            pagination: result.pagination,
+            ...catalogs,
+          };
+          episodesCache.set(payload, fetchKey);
+          setItems(nextItems);
           setPagination(result.pagination);
         }
       } catch (err) {
@@ -324,6 +471,7 @@ export function useEpisodes(initialChapterId = "") {
           setPagination((prev) => bumpPagination(prev, 1));
         }
 
+        episodesCache.clear();
         editor.closeEditor();
       },
       "Failed to create episode",
@@ -361,6 +509,7 @@ export function useEpisodes(initialChapterId = "") {
           );
         });
 
+        episodesCache.clear();
         editor.closeEditor();
       },
       "Failed to update episode",
@@ -376,6 +525,7 @@ export function useEpisodes(initialChapterId = "") {
       if (isPaginated) {
         setPagination((prev) => bumpPagination(prev, -1));
       }
+      episodesCache.clear();
     }, "Failed to delete episode");
   };
 

@@ -165,10 +165,10 @@ export const uploadService = {
     uploadMediaImage(file, { type: "episode", episodeId }),
   chapterThumbnail: (file: File, chapterId?: string) =>
     uploadChapterThumbnail(file, chapterId),
-  /** Character, location, or quiz-instruction image. */
+  /** Character, location, event, or quiz-instruction image. */
   entityImage: (
     file: File,
-    type: "character" | "location" | "quizInstruction" | "misc",
+    type: "character" | "location" | "event" | "quizInstruction" | "misc",
     entityId?: string
   ) => uploadMediaImage(file, { type, entityId }),
   /** Avatar catalog image — stored under `assets/avatars/`. */

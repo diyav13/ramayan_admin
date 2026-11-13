@@ -37,7 +37,7 @@ export function ChapterSelectField({
   onChange,
   required = false,
   disabled = false,
-  placeholder = "Select chapter",
+  placeholder = "Choose a chapter",
 }: ChapterSelectFieldProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);

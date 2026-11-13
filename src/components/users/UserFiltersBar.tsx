@@ -6,10 +6,12 @@ export function UserFiltersBar({
   search,
   onSearchChange,
   onSearchClear,
+  disabled = false,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
   onSearchClear: () => void;
+  disabled?: boolean;
 }) {
   return (
     <SearchInput
@@ -17,6 +19,7 @@ export function UserFiltersBar({
       onChange={(e) => onSearchChange(e.target.value)}
       onClear={onSearchClear}
       placeholder="Search name, email, or phone…"
+      disabled={disabled}
     />
   );
 }

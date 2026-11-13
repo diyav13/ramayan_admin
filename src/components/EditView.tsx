@@ -15,25 +15,27 @@ export function EditView({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4 sm:space-y-6">
       {onBack && (
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] transition hover:text-white"
+          className="inline-flex items-center gap-1.5 text-sm font-medium tracking-wide text-[var(--text-muted)] transition hover:text-white"
         >
           <span aria-hidden>←</span>
           Back
         </button>
       )}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-serif text-2xl">{title}</h2>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="truncate text-[1.375rem] font-semibold tracking-[-0.01em] sm:text-[1.75rem]">
+            {title}
+          </h2>
+          <p className="subtitle-text mt-1.5">{subtitle}</p>
         </div>
         {badge}
       </div>
-      <div className="rounded-lg border border-white/5 bg-[var(--surface-alt)] p-6">
+      <div className="rounded-lg border border-white/5 bg-[var(--surface-alt)] p-4 sm:p-6">
         {children}
       </div>
     </div>

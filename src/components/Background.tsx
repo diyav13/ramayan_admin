@@ -8,5 +8,15 @@ export function Background({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={`bg-ramayan min-h-screen ${className}`}>{children}</div>;
+  // Only default to min-h-dvh when the caller does not set an explicit height.
+  // Dashboard needs a locked h-dvh shell so sidebar/main scroll independently.
+  const hasExplicitHeight = /\b(?:h-|max-h-|min-h-)/.test(className);
+
+  return (
+    <div
+      className={`bg-ramayan ${hasExplicitHeight ? "" : "min-h-dvh"} ${className}`.trim()}
+    >
+      {children}
+    </div>
+  );
 }

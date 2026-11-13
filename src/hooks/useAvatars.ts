@@ -5,6 +5,10 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
 import { createInflightDedupe } from "@/lib/api/inflight";
+import {
+  createSessionCache,
+  type ListCachePayload,
+} from "@/lib/api/session-cache";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
   computePageRange,
@@ -20,6 +24,7 @@ import type {
 } from "@/types/avatar";
 
 const fetchAvatarsOnce = createInflightDedupe<PaginatedResult<Avatar>>();
+const avatarsCache = createSessionCache<ListCachePayload<Avatar>>("avatars");
 
 function matchesSearch(name: string, search: string): boolean {
   if (!search) return true;
@@ -39,13 +44,20 @@ function bumpPagination(
   };
 }
 
+const DEFAULT_AVATARS_KEY = "avatars:1:";
+
 export function useAvatars() {
-  const [items, setItems] = useState<Avatar[]>([]);
-  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
+  const initial = avatarsCache.get(DEFAULT_AVATARS_KEY);
+  const [items, setItems] = useState<Avatar[]>(
+    () => initial?.data.items ?? []
+  );
+  const [pagination, setPagination] = useState<PaginationMeta | null>(
+    () => initial?.data.pagination ?? null
+  );
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initial);
   const [error, setError] = useState<string | null>(null);
 
   const editor = useEditorState<Avatar>();
@@ -53,7 +65,7 @@ export function useAvatars() {
   const searchTerm = debouncedSearch.trim();
   const hasActiveFilters = Boolean(searchTerm);
   const filtersRef = useRef({ searchTerm: "" });
-  const lastFetchKeyRef = useRef<string | null>(null);
+  const activeKeyRef = useRef("avatars:1:");
 
   useEffect(() => {
     let cancelled = false;
@@ -69,8 +81,12 @@ export function useAvatars() {
 
     const pageToLoad = filtersChanged ? 1 : page;
     const fetchKey = `avatars:${pageToLoad}:${searchTerm}`;
+    activeKeyRef.current = fetchKey;
 
-    if (lastFetchKeyRef.current === fetchKey) {
+    const cached = avatarsCache.get(fetchKey);
+    if (cached) {
+      setItems(cached.data.items);
+      setPagination(cached.data.pagination);
       setLoading(false);
       return;
     }
@@ -89,9 +105,13 @@ export function useAvatars() {
           fetchKey
         );
         if (cancelled) return;
-        setItems(result.data);
-        setPagination(result.pagination ?? null);
-        lastFetchKeyRef.current = fetchKey;
+        const payload = {
+          items: result.data,
+          pagination: result.pagination ?? null,
+        };
+        avatarsCache.set(payload, fetchKey);
+        setItems(payload.items);
+        setPagination(payload.pagination);
       } catch (err) {
         if (cancelled) return;
         setError(getErrorMessage(err, "Failed to load avatars"));
@@ -130,6 +150,7 @@ export function useAvatars() {
           setPagination((prev) => bumpPagination(prev, 1));
         }
 
+        avatarsCache.clear();
         editor.closeEditor();
       },
       "Failed to create avatar",
@@ -154,6 +175,7 @@ export function useAvatars() {
           return prev.map((item) => (item.id === id ? updated : item));
         });
 
+        avatarsCache.clear();
         editor.closeEditor();
       },
       "Failed to update avatar",
@@ -167,6 +189,7 @@ export function useAvatars() {
       editor.cancelDelete();
       setItems((prev) => prev.filter((item) => item.id !== id));
       setPagination((prev) => bumpPagination(prev, -1));
+      avatarsCache.clear();
     }, "Failed to delete avatar");
   };
 

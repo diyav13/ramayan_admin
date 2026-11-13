@@ -1,75 +1,85 @@
 "use client";
 
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 
 function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
+const STAT_META = [
+  {
+    key: "totalUsers" as const,
+    label: "Total Users",
+    hint: "Registered accounts",
+  },
+  {
+    key: "publishedChapters" as const,
+    label: "Active Chapters",
+    hint: "Published in catalog",
+  },
+  {
+    key: "totalEpisodes" as const,
+    label: "Episodes",
+    hint: "Across all chapters",
+  },
+  {
+    key: "premiumSubscribers" as const,
+    label: "Subscribers",
+    hint: "Premium active",
+  },
+];
+
 export default function DashboardPage() {
   const { stats, loading, error } = useDashboardStats();
 
-  const statCards = [
-    { label: "Total Users", value: stats?.totalUsers },
-    { label: "Active Chapters", value: stats?.publishedChapters },
-    { label: "Episodes", value: stats?.totalEpisodes },
-    { label: "Subscribers", value: stats?.premiumSubscribers },
-  ];
-
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="font-serif text-2xl">Dashboard Overview</h2>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Welcome back. Here&apos;s what&apos;s happening with Ramayana.
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-6xl space-y-4 sm:space-y-6">
+      {error && <ErrorBanner message={error} />}
 
-      {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statCards.map((stat) => (
+      <section
+        aria-label="Key metrics"
+        className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"
+      >
+        {STAT_META.map((meta) => (
           <StatCard
-            key={stat.label}
-            label={stat.label}
-            value={
-              loading
-                ? "—"
-                : stat.value !== undefined
-                  ? formatCount(stat.value)
-                  : "—"
-            }
-            loading={loading}
+            key={meta.key}
+            label={meta.label}
+            hint={meta.hint}
+            value={stats ? formatCount(stats[meta.key]) : undefined}
+            loading={loading && !stats}
           />
         ))}
-      </div>
+      </section>
     </div>
   );
 }
 
 function StatCard({
   label,
+  hint,
   value,
   loading,
 }: {
   label: string;
-  value: string;
+  hint: string;
+  value?: string;
   loading: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--gold-border)]/30 bg-[var(--surface-alt)] p-5">
-      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">
-        {label}
-      </p>
-      <p
-        className={`mt-2 font-serif text-3xl ${loading ? "text-[var(--text-muted)]" : ""}`}
-      >
-        {value}
-      </p>
+    <div className="rounded border border-[var(--gold-border)]/25 bg-[var(--surface-alt)]/90 p-3.5 sm:p-5">
+      <p className="label-text text-[10px] sm:text-[11px]">{label}</p>
+      {loading ? (
+        <div
+          className="mt-3 h-8 w-20 animate-pulse rounded bg-white/10 sm:h-9 sm:w-24"
+          aria-hidden
+        />
+      ) : (
+        <p className="mt-2 text-[1.75rem] font-semibold tabular-nums tracking-[-0.02em] sm:text-[2.125rem]">
+          {value ?? "—"}
+        </p>
+      )}
+      <p className="subtitle-text mt-2 text-[11px] sm:text-xs">{hint}</p>
     </div>
   );
 }

@@ -17,13 +17,13 @@ export function Button({
     secondary: "bg-[var(--surface-alt)] text-white hover:bg-[var(--surface)]",
   };
   const sizes = {
-    md: "h-12 px-5 text-sm",
-    sm: "h-10 px-4 text-xs",
+    md: "h-12 px-5 text-sm tracking-[0.1em]",
+    sm: "h-10 px-4 text-xs tracking-[0.08em]",
   };
 
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 rounded font-semibold uppercase tracking-wide transition disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded font-semibold uppercase transition disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
       {children}

@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import { Afacad_Flux, Playfair_Display } from "next/font/google";
+import { Outfit } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import "./globals.css";
 
-const afacad = Afacad_Flux({
-  variable: "--font-afacad",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -23,7 +18,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${afacad.variable} ${playfair.variable} h-full`}>
+    <html lang="en" className={`${outfit.variable} h-full`}>
       <body className="min-h-full antialiased">
         <AuthProvider>{children}</AuthProvider>
       </body>

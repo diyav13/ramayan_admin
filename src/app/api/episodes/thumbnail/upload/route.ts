@@ -9,6 +9,7 @@ const UPLOAD_TYPES = new Set<MediaImageUploadType>([
   "episode",
   "character",
   "location",
+  "event",
   "quizInstruction",
   "avatar",
   "misc",

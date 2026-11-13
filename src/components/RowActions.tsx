@@ -13,7 +13,7 @@ type RowActionsProps = {
 };
 
 const iconButtonClass =
-  "inline-flex size-8 items-center justify-center rounded border transition";
+  "inline-flex size-7 shrink-0 items-center justify-center rounded border transition sm:size-8";
 
 export function RowActions({
   confirming,
@@ -26,21 +26,22 @@ export function RowActions({
 }: RowActionsProps) {
   if (confirming) {
     return (
-      <div className="flex justify-end gap-2">
-        <span className="self-center text-xs text-[var(--text-muted)]">
-          Delete?
+      <div className="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap">
+        <span className="text-[10px] text-[var(--text-muted)] sm:text-xs">
+          <span className="sm:hidden">Del?</span>
+          <span className="hidden sm:inline">Delete?</span>
         </span>
         <button
           type="button"
           onClick={onConfirmDelete}
-          className="rounded border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs text-red-400 transition hover:bg-red-500/20"
+          className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs text-red-400 transition hover:bg-red-500/20"
         >
           Yes
         </button>
         <button
           type="button"
           onClick={onCancelDelete}
-          className="rounded border border-white/10 px-3 py-1 text-xs transition hover:bg-white/10"
+          className="rounded border border-white/10 px-2 py-1 text-xs transition hover:bg-white/10"
         >
           No
         </button>
@@ -49,7 +50,7 @@ export function RowActions({
   }
 
   return (
-    <div className="flex justify-end gap-1.5">
+    <div className="flex flex-nowrap justify-end gap-1 sm:gap-1.5">
       {onQuizzes ? (
         <button
           type="button"

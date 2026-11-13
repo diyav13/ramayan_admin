@@ -83,17 +83,25 @@ export function ChapterForm({
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input label="Title" name="title" defaultValue={chapter?.title} required />
+        <Input
+          label="Title"
+          name="title"
+          defaultValue={chapter?.title}
+          required
+          placeholder="Enter chapter title"
+        />
         <Input
           label="Tagline"
           name="tagline"
           defaultValue={chapter?.tagline ?? ""}
+          placeholder="Enter a short tagline"
         />
       </div>
       <Textarea
         label="Description"
         name="description"
         defaultValue={chapter?.description ?? ""}
+        placeholder="Enter chapter description"
       />
       <div className="flex flex-wrap items-end gap-4 sm:gap-6">
         <div className="w-28 shrink-0">
@@ -103,6 +111,7 @@ export function ChapterForm({
             type="number"
             min={1}
             defaultValue={displayOrder}
+            placeholder="Enter display order"
           />
         </div>
         <div className="w-32 shrink-0 sm:w-36">

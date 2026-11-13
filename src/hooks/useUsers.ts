@@ -5,6 +5,10 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
 import { createInflightDedupe } from "@/lib/api/inflight";
+import {
+  createSessionCache,
+  type ListCachePayload,
+} from "@/lib/api/session-cache";
 import { getErrorMessage } from "@/lib/api/errors";
 import {
   computePageRange,
@@ -16,6 +20,7 @@ import type { PaginatedResult, PaginationMeta } from "@/types/api";
 import type { UpdateUserInput, User } from "@/types/user";
 
 const fetchUsersOnce = createInflightDedupe<PaginatedResult<User>>();
+const usersCache = createSessionCache<ListCachePayload<User>>("users");
 
 function matchesSearch(user: User, search: string): boolean {
   if (!search) return true;
@@ -40,13 +45,18 @@ function bumpPagination(
   };
 }
 
+const DEFAULT_USERS_KEY = "users:USER:1:";
+
 export function useUsers() {
-  const [items, setItems] = useState<User[]>([]);
-  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
+  const initial = usersCache.get(DEFAULT_USERS_KEY);
+  const [items, setItems] = useState<User[]>(() => initial?.data.items ?? []);
+  const [pagination, setPagination] = useState<PaginationMeta | null>(
+    () => initial?.data.pagination ?? null
+  );
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initial);
   const [error, setError] = useState<string | null>(null);
 
   const editor = useEditorState<User>();
@@ -70,6 +80,14 @@ export function useUsers() {
     const pageToLoad = filtersChanged ? 1 : page;
     const fetchKey = `users:USER:${pageToLoad}:${searchTerm}`;
 
+    const cached = usersCache.get(fetchKey);
+    if (cached) {
+      setItems(cached.data.items);
+      setPagination(cached.data.pagination);
+      setLoading(false);
+      return;
+    }
+
     async function load() {
       setLoading(true);
       setError(null);
@@ -86,8 +104,13 @@ export function useUsers() {
           fetchKey
         );
         if (cancelled) return;
-        setItems(result.data);
-        setPagination(result.pagination ?? null);
+        const payload = {
+          items: result.data,
+          pagination: result.pagination ?? null,
+        };
+        usersCache.set(payload, fetchKey);
+        setItems(payload.items);
+        setPagination(payload.pagination);
       } catch (err) {
         if (cancelled) return;
         setError(getErrorMessage(err, "Failed to load users"));
@@ -131,6 +154,7 @@ export function useUsers() {
           );
         });
 
+        usersCache.clear();
         editor.closeEditor();
       },
       "Failed to update user",
@@ -144,6 +168,7 @@ export function useUsers() {
       editor.cancelDelete();
       setItems((prev) => prev.filter((item) => item.id !== id));
       setPagination((prev) => bumpPagination(prev, -1));
+      usersCache.clear();
     }, "Failed to delete user");
   };
 

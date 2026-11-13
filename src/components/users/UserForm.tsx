@@ -49,12 +49,14 @@ export function UserForm({
               className="size-14 shrink-0 rounded-full object-cover ring-1 ring-white/10"
             />
           ) : (
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] text-lg font-bold text-[var(--gold)] ring-1 ring-white/10">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] text-xl font-semibold text-[var(--gold)] ring-1 ring-white/10">
               ?
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white">Selected avatar</p>
+            <p className="text-sm font-medium tracking-wide text-white">
+              Selected avatar
+            </p>
             {user.selectedAvatar ? (
               <p className="truncate text-sm text-[var(--gold)]">
                 {user.selectedAvatar.name}
@@ -70,21 +72,32 @@ export function UserForm({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input label="Name" name="name" defaultValue={user.name ?? ""} />
+        <Input
+          label="Name"
+          name="name"
+          defaultValue={user.name ?? ""}
+          placeholder="Enter user name"
+        />
         <Input
           label="Email"
           name="email"
           type="email"
           defaultValue={user.email ?? ""}
+          placeholder="Enter email address"
         />
         <Input
           label="New password"
           name="password"
           type="password"
-          placeholder="Leave blank to keep current"
+          placeholder="Enter new password (leave blank to keep current)"
           minLength={6}
         />
-        <Input label="Phone" name="phone" defaultValue={user.phone ?? ""} />
+        <Input
+          label="Phone"
+          name="phone"
+          defaultValue={user.phone ?? ""}
+          placeholder="Enter phone number"
+        />
       </div>
 
       <FormActions

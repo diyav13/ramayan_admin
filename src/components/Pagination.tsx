@@ -19,7 +19,7 @@ export function Pagination({
 
   return (
     <div className="flex flex-col gap-3 border-t border-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-[var(--text-muted)]">
+      <p className="subtitle-text">
         {summary ?? `Page ${pagination.page} of ${pagination.totalPages}`}
       </p>
       <div className="flex items-center gap-2">
@@ -32,7 +32,7 @@ export function Pagination({
         >
           Previous
         </Button>
-        <span className="min-w-[4.5rem] text-center text-xs font-medium text-[var(--text-muted)]">
+        <span className="min-w-[4.5rem] text-center text-xs font-medium tracking-wide text-[var(--text-muted)]">
           {page} / {pagination.totalPages}
         </span>
         <Button

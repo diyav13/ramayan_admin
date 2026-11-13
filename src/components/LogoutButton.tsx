@@ -9,7 +9,7 @@ export function LogoutButton({ className = "" }: { className?: string }) {
     <button
       type="button"
       onClick={() => void logout()}
-      className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-white/5 hover:text-white ${className}`}
+      className={`flex items-center gap-2 rounded px-3 py-2 text-sm font-medium tracking-wide text-[var(--text-muted)] transition hover:bg-white/5 hover:text-white ${className}`}
     >
       <LogoutIcon />
       Sign out

@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { RowActions } from "@/components/RowActions";
-import { DataTable } from "@/components/DataTable";
+import { DataTable, columnHideClass } from "@/components/DataTable";
 import { EditView } from "@/components/EditView";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PublishBadge } from "@/components/StatusBadges";
@@ -26,15 +26,20 @@ import type {
 } from "@/types/episode";
 
 const columns = [
-  { label: "#" },
-  { label: "Episode" },
-  { label: "Chapter" },
-  { label: "Status" },
-  { label: "Actions", align: "right" as const },
+  { label: "#", width: "5.5rem" }, // "N of N" index label
+  { label: "Episode" }, // fluid identity column (thumb + title)
+  { label: "Chapter", hideBelow: "md" as const, width: "9rem" },
+  { label: "Status", hideBelow: "md" as const, width: "6.5rem" },
+  { label: "Actions", align: "right" as const, width: "7.5rem" }, // 3 icon buttons
 ];
 
+const hideMd = columnHideClass("md");
+const SKELETON_ROWS = 6;
+
 const episodeThumbClass =
-  "h-10 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10";
+  "h-8 w-11 shrink-0 rounded-md object-cover ring-1 ring-white/10 sm:h-10 sm:w-14 sm:rounded-lg";
+
+const cellPad = "px-1.5 py-2.5 sm:px-3 sm:py-3.5 md:px-4";
 
 function EpisodeThumb({
   title,
@@ -53,7 +58,7 @@ function EpisodeThumb({
 
   return (
     <div
-      className={`flex items-center justify-center bg-[var(--surface)] text-sm font-bold text-[var(--gold)] ${episodeThumbClass}`}
+      className={`flex items-center justify-center bg-[var(--surface)] text-sm font-semibold text-[var(--gold)] sm:text-base ${episodeThumbClass}`}
       aria-hidden
     >
       {initial}
@@ -70,11 +75,74 @@ function EpisodeIndexLabel({
 }) {
   return (
     <span className="whitespace-nowrap">
-      <span className="text-lg font-bold text-white">{index}</span>
+      <span className="text-base font-semibold tabular-nums tracking-[-0.01em] text-white sm:text-lg">
+        {index}
+      </span>
       {total != null ? (
-        <span className="text-xs text-[var(--text-muted)]"> of {total}</span>
+        <span className="hidden text-xs tracking-wide text-[var(--text-muted)] sm:inline">
+          {" "}
+          of {total}
+        </span>
       ) : null}
     </span>
+  );
+}
+
+function SkeletonBar({ className = "" }: { className?: string }) {
+  return (
+    <div className={`skeleton-shimmer rounded ${className}`} aria-hidden />
+  );
+}
+
+function EpisodesTableSkeleton() {
+  return (
+    <div
+      className="overflow-hidden rounded-lg border border-white/5 bg-[var(--surface-alt)]"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <DataTable columns={columns} embedded>
+        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+          <tr
+            key={index}
+            className="border-b border-white/5 last:border-0"
+            style={{
+              borderLeft: "2px solid transparent",
+              opacity: 1 - index * 0.07,
+            }}
+          >
+            <td className={cellPad}>
+              <SkeletonBar className="h-3.5 w-4" />
+            </td>
+            <td className={cellPad}>
+              <div className="flex items-start gap-2 sm:gap-3">
+                <SkeletonBar className="h-8 w-11 shrink-0 rounded-md sm:h-10 sm:w-14 sm:rounded-lg" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <SkeletonBar className="h-3.5 w-[75%] max-w-[12rem]" />
+                  <SkeletonBar className="h-3 w-[55%] max-w-[9rem]" />
+                  <SkeletonBar className="mt-1 h-5 w-16 rounded-full md:hidden" />
+                </div>
+              </div>
+            </td>
+            <td className={`${cellPad} ${hideMd}`}>
+              <SkeletonBar className="h-3.5 w-20" />
+            </td>
+            <td className={`${cellPad} ${hideMd}`}>
+              <SkeletonBar className="h-5 w-14 rounded-full" />
+            </td>
+            <td className={cellPad}>
+              <div className="flex justify-end gap-1 sm:gap-1.5">
+                <SkeletonBar className="size-7 rounded sm:size-8" />
+                <SkeletonBar className="size-7 rounded sm:size-8" />
+                <SkeletonBar className="size-7 rounded sm:size-8" />
+              </div>
+            </td>
+          </tr>
+        ))}
+      </DataTable>
+      <span className="sr-only">Loading episodes…</span>
+    </div>
   );
 }
 
@@ -200,7 +268,7 @@ export default function EpisodesPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-3 sm:space-y-5">
       <PageHeader
         title="Episode Management"
         subtitle={
@@ -210,6 +278,7 @@ export default function EpisodesPage() {
         }
         actionLabel="Add Episode"
         onAction={startCreate}
+        actionDisabled={loading}
       />
 
       <EpisodeFiltersBar
@@ -219,12 +288,13 @@ export default function EpisodesPage() {
         chapterId={chapterId}
         onChapterChange={setChapterId}
         chapterOptions={chapterFilterOptions}
+        disabled={loading}
       />
 
       {error && <ErrorBanner message={error} />}
 
       {loading ? (
-        <ListState message="Loading episodes…" />
+        <EpisodesTableSkeleton />
       ) : items.length === 0 ? (
         <ListState
           message="No episodes found"
@@ -236,7 +306,7 @@ export default function EpisodesPage() {
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-white/5 bg-[var(--surface-alt)]">
-          <DataTable columns={columns} minWidth={800} embedded>
+          <DataTable columns={columns} embedded>
             {items.map((episode) => {
               const chapterColor = resolveEpisodeChapterAccentColor(
                 episode,
@@ -250,6 +320,11 @@ export default function EpisodesPage() {
                 items
               );
               const episodeIndex = episode.orderIndex + 1;
+              const chapterTitle = resolveEpisodeChapterTitle(
+                episode,
+                chapters,
+                activeFilterChapterId
+              );
 
               return (
                 <tr
@@ -259,50 +334,59 @@ export default function EpisodesPage() {
                     borderLeft: `2px solid ${chapterColor}`,
                   }}
                 >
-                  <td className="px-4 py-3.5 align-top">
+                  <td className={`${cellPad} align-top`}>
                     <EpisodeIndexLabel
                       index={episodeIndex}
                       total={chapterEpisodeCount}
                     />
                   </td>
-                  <td className="px-4 py-3.5 align-top">
-                    <div className="flex min-w-0 items-start gap-3">
+                  <td className={`${cellPad} overflow-hidden align-top`}>
+                    <div className="flex min-w-0 items-start gap-2 sm:gap-3">
                       <EpisodeThumb
                         title={episode.title}
                         thumbnailUrl={episode.thumbnailUrl}
                       />
-                      <div className="min-w-0">
-                        <p className="truncate font-serif text-[15px] capitalize text-white">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[0.9375rem] font-semibold capitalize tracking-[-0.01em] text-white sm:text-base">
                           {episode.title}
                         </p>
-                        <p className="truncate text-xs text-[var(--text-muted)]">
+                        <p className="truncate text-[11px] text-[var(--text-muted)] sm:text-xs">
                           {episode.description ?? "No description"}
                         </p>
                         {episode.moralOfTheStory ? (
-                          <p className="mt-1 truncate text-xs italic text-[var(--text-muted)]">
+                          <p className="mt-0.5 truncate text-[11px] italic text-[var(--text-muted)] sm:mt-1 sm:text-xs">
                             Moral: {episode.moralOfTheStory}
                           </p>
                         ) : null}
-                        <EpisodeEntityDetails
-                          episode={episode}
-                          characters={characters}
-                          locations={locations}
-                          quizInstructions={quizInstructions}
-                        />
+                        <div className="hidden sm:block">
+                          <EpisodeEntityDetails
+                            episode={episode}
+                            characters={characters}
+                            locations={locations}
+                            quizInstructions={quizInstructions}
+                          />
+                        </div>
+                        {/* Mobile-only meta: replaces Chapter / Status cols */}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
+                          <PublishBadge
+                            published={episode.isPublished ?? false}
+                          />
+                          <span className="truncate text-[11px] text-[var(--text-muted)]">
+                            {chapterTitle}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 align-top text-[var(--text-muted)]">
-                    {resolveEpisodeChapterTitle(
-                      episode,
-                      chapters,
-                      activeFilterChapterId
-                    )}
+                  <td
+                    className={`${cellPad} ${hideMd} overflow-hidden align-top text-[var(--text-muted)]`}
+                  >
+                    <p className="truncate">{chapterTitle}</p>
                   </td>
-                  <td className="px-4 py-3.5 align-top">
+                  <td className={`${cellPad} ${hideMd} align-top`}>
                     <PublishBadge published={episode.isPublished ?? false} />
                   </td>
-                  <td className="px-4 py-3.5 align-top">
+                  <td className={`${cellPad} align-top`}>
                     <RowActions
                       confirming={confirmDeleteId === episode.id}
                       onQuizzes={() => {

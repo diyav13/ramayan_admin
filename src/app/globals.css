@@ -10,6 +10,20 @@
   --surface-dark: #0f0f0f;
   --text-muted: rgba(255, 255, 255, 0.6);
   --progress: #54d73b;
+
+  /* Type scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --tracking-label: 0.08em;
+  --tracking-title: -0.01em;
 }
 
 @theme inline {
@@ -17,17 +31,101 @@
   --color-surface: var(--surface);
   --color-surface-alt: var(--surface-alt);
   --color-surface-dark: var(--surface-dark);
-  --font-sans: var(--font-afacad);
-  --font-serif: var(--font-playfair);
+  --font-sans: var(--font-outfit);
+  --font-serif: var(--font-outfit);
 }
 
 body {
   background: linear-gradient(166deg, var(--bg-from) 9%, var(--bg-to) 91.5%);
   color: #fff;
-  font-family: var(--font-afacad), system-ui, sans-serif;
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  letter-spacing: 0.01em;
+  font-feature-settings: "ss01" on, "kern" on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   min-height: 100vh;
+}
+
+/* Titles use the same Outfit face as the sidebar */
+h1,
+h2 {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: var(--tracking-title);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+h1 {
+  font-size: var(--text-2xl);
+}
+
+h2 {
+  font-size: var(--text-xl);
+}
+
+/* Form labels & muted meta */
+.label-text {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: var(--leading-snug);
+}
+
+.subtitle-text {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: 0.015em;
+  color: var(--text-muted);
+  line-height: var(--leading-normal);
+}
+
+/* Text inputs / selects / textareas */
+.control-text {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: 0.015em;
+  line-height: var(--leading-normal);
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
+::placeholder {
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
 .bg-ramayan {
   background: linear-gradient(166deg, var(--bg-from) 9%, var(--bg-to) 91.5%);
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.14) 45%,
+    rgba(231, 160, 32, 0.12) 55%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }

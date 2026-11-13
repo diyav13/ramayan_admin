@@ -137,7 +137,7 @@ export function AvatarForm({
               defaultValue={avatar?.name}
               required
               maxLength={NAME_MAX_LENGTH}
-              placeholder="e.g. Rama, Sita, Golden Deer"
+              placeholder="Enter avatar name"
               aria-invalid={Boolean(errors.name)}
               onChange={() =>
                 setErrors((prev) => {
