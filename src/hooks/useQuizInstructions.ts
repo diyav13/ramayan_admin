@@ -48,7 +48,7 @@ function bumpPagination(
 
 const DEFAULT_QUIZ_INSTRUCTIONS_KEY = "quiz-instructions:1:";
 
-export function useQuizInstructions(enabled = true) {
+export function useQuizInstructions() {
   const initial = quizInstructionsCache.get(DEFAULT_QUIZ_INSTRUCTIONS_KEY);
   const [items, setItems] = useState<QuizInstruction[]>(
     () => initial?.data.items ?? []
@@ -69,8 +69,6 @@ export function useQuizInstructions(enabled = true) {
   const filtersRef = useRef({ searchTerm: "" });
 
   useEffect(() => {
-    if (!enabled) return;
-
     let cancelled = false;
 
     const filtersChanged = filtersRef.current.searchTerm !== searchTerm;
@@ -126,7 +124,7 @@ export function useQuizInstructions(enabled = true) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, searchTerm, page]);
+  }, [searchTerm, page]);
 
   const startEdit = (id: string) => {
     mutation.clearError();
@@ -212,7 +210,7 @@ export function useQuizInstructions(enabled = true) {
     hasActiveFilters,
     page,
     setPage,
-    loading: enabled ? loading : false,
+    loading,
     saving: mutation.saving,
     error: error ?? mutation.error,
     editingItem: editor.editingItem,

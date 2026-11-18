@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
@@ -15,6 +15,7 @@ import {
   DEFAULT_LIMIT,
   totalFromPagination,
 } from "@/lib/pagination";
+import { clearLocationsCatalogCache } from "@/lib/catalog/options";
 import { locationService } from "@/services/locations";
 import type { PaginatedResult, PaginationMeta } from "@/types/api";
 import type {
@@ -24,29 +25,13 @@ import type {
 } from "@/types/location";
 
 const fetchLocationsOnce = createInflightDedupe<PaginatedResult<Location>>();
-const locationsCache = createSessionCache<ListCachePayload<Location>>("locations");
-
-function matchesSearch(name: string, search: string): boolean {
-  if (!search) return true;
-  return name.toLowerCase().includes(search.toLowerCase());
-}
-
-function bumpPagination(
-  current: PaginationMeta | null,
-  delta: number
-): PaginationMeta | null {
-  if (!current) return current;
-  const total = Math.max(0, current.total + delta);
-  return {
-    ...current,
-    total,
-    totalPages: Math.max(1, Math.ceil(total / current.limit)),
-  };
-}
+const locationsCache = createSessionCache<ListCachePayload<Location>>(
+  "locations"
+);
 
 const DEFAULT_LOCATIONS_KEY = "locations:1:";
 
-export function useLocations(enabled = true) {
+export function useLocations() {
   const initial = locationsCache.get(DEFAULT_LOCATIONS_KEY);
   const [items, setItems] = useState<Location[]>(
     () => initial?.data.items ?? []
@@ -57,7 +42,9 @@ export function useLocations(enabled = true) {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [page, setPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(() => !initial);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(() => Boolean(initial));
   const [error, setError] = useState<string | null>(null);
 
   const editor = useEditorState<Location>();
@@ -66,9 +53,13 @@ export function useLocations(enabled = true) {
   const hasActiveFilters = Boolean(searchTerm);
   const filtersRef = useRef({ searchTerm: "" });
 
-  useEffect(() => {
-    if (!enabled) return;
+  const invalidateLists = useCallback(() => {
+    locationsCache.clear();
+    clearLocationsCatalogCache();
+    setReloadKey((key) => key + 1);
+  }, []);
 
+  useEffect(() => {
     let cancelled = false;
 
     const filtersChanged = filtersRef.current.searchTerm !== searchTerm;
@@ -87,6 +78,7 @@ export function useLocations(enabled = true) {
     if (cached) {
       setItems(cached.data.items);
       setPagination(cached.data.pagination);
+      setHasLoadedOnce(true);
       setLoading(false);
       return;
     }
@@ -102,7 +94,7 @@ export function useLocations(enabled = true) {
               page: pageToLoad,
               limit: DEFAULT_LIMIT,
             }),
-          fetchKey
+          `${fetchKey}:r${reloadKey}`
         );
         if (cancelled) return;
         const payload = {
@@ -116,7 +108,10 @@ export function useLocations(enabled = true) {
         if (cancelled) return;
         setError(getErrorMessage(err, "Failed to load locations"));
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setHasLoadedOnce(true);
+          setLoading(false);
+        }
       }
     }
 
@@ -124,7 +119,7 @@ export function useLocations(enabled = true) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, searchTerm, page]);
+  }, [searchTerm, page, reloadKey]);
 
   const startEdit = (id: string) => {
     mutation.clearError();
@@ -139,19 +134,9 @@ export function useLocations(enabled = true) {
   const createLocation = async (data: CreateLocationInput) => {
     await mutation.run(
       async () => {
-        const created = await locationService.create(data);
-
-        if (matchesSearch(created.name, searchTerm)) {
-          if (page === 1) {
-            setItems((prev) => [created, ...prev].slice(0, DEFAULT_LIMIT));
-          }
-          setPagination((prev) => bumpPagination(prev, 1));
-        } else {
-          setPagination((prev) => bumpPagination(prev, 1));
-        }
-
-        locationsCache.clear();
+        await locationService.create(data);
         editor.closeEditor();
+        invalidateLists();
       },
       "Failed to create location",
       { rethrow: true }
@@ -161,22 +146,9 @@ export function useLocations(enabled = true) {
   const updateLocation = async (id: string, data: UpdateLocationInput) => {
     await mutation.run(
       async () => {
-        const updated = await locationService.update(id, data);
-        const visible = matchesSearch(updated.name, searchTerm);
-
-        setItems((prev) => {
-          const exists = prev.some((item) => item.id === id);
-          if (!visible) {
-            return prev.filter((item) => item.id !== id);
-          }
-          if (!exists) {
-            return [updated, ...prev].slice(0, DEFAULT_LIMIT);
-          }
-          return prev.map((item) => (item.id === id ? updated : item));
-        });
-
-        locationsCache.clear();
+        await locationService.update(id, data);
         editor.closeEditor();
+        invalidateLists();
       },
       "Failed to update location",
       { rethrow: true }
@@ -187,9 +159,7 @@ export function useLocations(enabled = true) {
     await mutation.run(async () => {
       await locationService.remove(id);
       editor.cancelDelete();
-      setItems((prev) => prev.filter((item) => item.id !== id));
-      setPagination((prev) => bumpPagination(prev, -1));
-      locationsCache.clear();
+      invalidateLists();
     }, "Failed to delete location");
   };
 
@@ -207,7 +177,10 @@ export function useLocations(enabled = true) {
     hasActiveFilters,
     page,
     setPage,
-    loading: enabled ? loading : false,
+    loading,
+    initialLoading: loading && !hasLoadedOnce,
+    isSearching:
+      searchInput.trim() !== searchTerm || (loading && hasLoadedOnce),
     saving: mutation.saving,
     error: error ?? mutation.error,
     editingItem: editor.editingItem,

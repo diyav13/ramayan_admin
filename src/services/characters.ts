@@ -11,11 +11,13 @@ import type {
 } from "@/types/character";
 
 function toListQuery(params: CharacterListParams): string {
+  const all = params.all === true;
   return buildQuery({
     search: params.search,
     episodeId: params.episodeId,
-    page: params.page ?? DEFAULT_PAGE,
-    limit: params.limit ?? DEFAULT_LIMIT,
+    locationId: params.locationId,
+    page: all ? undefined : (params.page ?? DEFAULT_PAGE),
+    limit: all ? undefined : (params.limit ?? DEFAULT_LIMIT),
   });
 }
 
@@ -24,8 +26,6 @@ export const characterService = {
     params: CharacterListParams = {}
   ): Promise<PaginatedResult<Character>> =>
     api.list<Character>(`${paths.characters.root}${toListQuery(params)}`),
-
-  getById: (id: string) => api.get<Character>(paths.characters.byId(id)),
 
   create: (data: CreateCharacterInput) =>
     api.post<Character>(paths.characters.root, data),

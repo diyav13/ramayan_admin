@@ -27,9 +27,6 @@ export const quizInstructionService = {
       `${paths.quizInstructions.root}${toListQuery(params)}`
     ),
 
-  getById: (id: string) =>
-    api.get<QuizInstruction>(paths.quizInstructions.byId(id)),
-
   create: (data: CreateQuizInstructionInput) =>
     api.post<QuizInstruction>(paths.quizInstructions.root, data),
 

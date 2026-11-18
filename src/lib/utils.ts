@@ -32,3 +32,36 @@ export function nullableField(value: string): string | null {
   const trimmed = value.trim();
   return trimmed || null;
 }
+
+/** True when HTML is empty / editor placeholder-only. */
+export function isBlankHtml(html: string | null | undefined): boolean {
+  if (!html) return true;
+  const trimmed = html.trim();
+  if (!trimmed || trimmed === "<br>" || trimmed === "<div><br></div>") {
+    return true;
+  }
+  const text = trimmed
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length === 0;
+}
+
+/** Keep nested dropdown scroll from bubbling to the page at edges. */
+export function stopNestedScroll(event: {
+  currentTarget: HTMLElement;
+  deltaY: number;
+  preventDefault: () => void;
+  stopPropagation: () => void;
+}): void {
+  const el = event.currentTarget;
+  const { scrollTop, scrollHeight, clientHeight } = el;
+  const delta = event.deltaY;
+  const atTop = scrollTop <= 0 && delta < 0;
+  const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && delta > 0;
+  if (atTop || atBottom) {
+    event.preventDefault();
+  }
+  event.stopPropagation();
+}

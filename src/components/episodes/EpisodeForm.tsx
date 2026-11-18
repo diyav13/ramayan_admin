@@ -218,7 +218,7 @@ export function EpisodeForm({
           onChange={setCharacterIds}
           placeholder="Choose characters"
           searchPlaceholder="Search characters…"
-          emptyMessage="No characters yet — add them in Information."
+          emptyMessage="No characters yet — add them under Characters."
         />
         <MultiSelect
           label="Locations"
@@ -227,7 +227,7 @@ export function EpisodeForm({
           onChange={setLocationIds}
           placeholder="Choose locations"
           searchPlaceholder="Search locations…"
-          emptyMessage="No locations yet — add them in Information."
+          emptyMessage="No locations yet — add them under Locations."
         />
       </div>
 
@@ -241,7 +241,7 @@ export function EpisodeForm({
         }}
         placeholder="Choose quiz instructions"
         searchPlaceholder="Search quiz instructions…"
-        emptyMessage="No quiz instructions yet — add them in Information."
+        emptyMessage="No quiz instructions yet — add them under Quiz Instructions."
         min={QUIZ_INSTRUCTION_MIN}
         max={QUIZ_INSTRUCTION_MAX}
         error={quizInstructionError}

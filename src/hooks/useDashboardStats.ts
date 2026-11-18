@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createInflightDedupe } from "@/lib/api/inflight";
 import { createSessionCache } from "@/lib/api/session-cache";
 import { getErrorMessage } from "@/lib/api/errors";
@@ -21,57 +21,48 @@ export function useDashboardStats() {
     () => initial?.data.data ?? null
   );
   const [loading, setLoading] = useState(() => !initial?.data.data);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(
     () => initial?.data.error ?? null
   );
-  const [fetchedAt, setFetchedAt] = useState<number | null>(
-    () => initial?.fetchedAt ?? null
-  );
 
-  const load = useCallback(async (force = false) => {
+  useEffect(() => {
     const cached = statsCache.get();
-    if (!force && cached?.data.data) {
+    if (cached?.data.data) {
       setStats(cached.data.data);
       setError(cached.data.error);
-      setFetchedAt(cached.fetchedAt);
       setLoading(false);
-      setRefreshing(false);
       return;
     }
 
-    const hasCached = Boolean(cached?.data.data);
-    if (hasCached) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
+    let cancelled = false;
 
-    try {
-      const data = await fetchStatsOnce(() => dashboardService.getStats());
-      statsCache.set({ data, error: null });
-      setStats(data);
+    async function load() {
+      setLoading(true);
       setError(null);
-      setFetchedAt(Date.now());
-    } catch (err) {
-      const message = getErrorMessage(err, "Failed to load dashboard stats");
-      if (!statsCache.get()?.data.data) {
-        statsCache.set({ data: null, error: message });
-        setStats(null);
+      try {
+        const data = await fetchStatsOnce(() => dashboardService.getStats());
+        if (cancelled) return;
+        statsCache.set({ data, error: null });
+        setStats(data);
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        const message = getErrorMessage(err, "Failed to load dashboard stats");
+        if (!statsCache.get()?.data.data) {
+          statsCache.set({ data: null, error: message });
+          setStats(null);
+        }
+        setError(message);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setError(message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    void load(false);
-  }, [load]);
-
-  const refresh = useCallback(() => load(true), [load]);
-
-  return { stats, loading, refreshing, error, fetchedAt, refresh };
+  return { stats, loading, error };
 }

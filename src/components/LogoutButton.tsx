@@ -2,17 +2,27 @@
 
 import { useAuth } from "@/hooks/useAuth";
 
-export function LogoutButton({ className = "" }: { className?: string }) {
+export function LogoutButton({
+  className = "",
+  collapsed = false,
+}: {
+  className?: string;
+  collapsed?: boolean;
+}) {
   const { logout } = useAuth();
 
   return (
     <button
       type="button"
       onClick={() => void logout()}
-      className={`flex items-center gap-2 rounded px-3 py-2 text-sm font-medium tracking-wide text-[var(--text-muted)] transition hover:bg-white/5 hover:text-white ${className}`}
+      title="Sign out"
+      aria-label="Sign out"
+      className={`flex items-center gap-2 rounded px-3 py-2 text-sm font-medium tracking-wide text-[var(--text-muted)] transition hover:bg-white/5 hover:text-white ${
+        collapsed ? "justify-center px-2" : ""
+      } ${className}`}
     >
       <LogoutIcon />
-      Sign out
+      {!collapsed ? <span>Sign out</span> : null}
     </button>
   );
 }
@@ -28,6 +38,7 @@ function LogoutIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden
     >
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />

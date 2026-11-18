@@ -12,6 +12,8 @@ const UPLOAD_TYPES = new Set<MediaImageUploadType>([
   "event",
   "quizInstruction",
   "avatar",
+  "mapPin",
+  "mapDetail",
   "misc",
 ]);
 

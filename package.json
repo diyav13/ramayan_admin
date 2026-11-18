@@ -10,12 +10,14 @@
     "test": "npx tsx --test src/services/multipart-upload.helpers.test.ts"
   },
   "dependencies": {
+    "lodash": "^4.18.1",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/lodash": "^4.17.27",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

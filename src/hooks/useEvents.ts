@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
@@ -10,6 +10,7 @@ import {
   type ListCachePayload,
 } from "@/lib/api/session-cache";
 import { getErrorMessage } from "@/lib/api/errors";
+import { clearEventsCatalogCache } from "@/lib/catalog/options";
 import {
   computePageRange,
   DEFAULT_LIMIT,
@@ -26,40 +27,9 @@ import type {
 const fetchEventsOnce = createInflightDedupe<PaginatedResult<Event>>();
 const eventsCache = createSessionCache<ListCachePayload<Event>>("events");
 
-function matchesFilters(
-  event: Event,
-  search: string,
-  locationId: string
-): boolean {
-  if (locationId && event.locationId !== locationId) return false;
-  if (!search) return true;
-  const haystack = [
-    event.name,
-    event.location?.name,
-    ...(event.characters?.map((c) => c.name) ?? []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(search.toLowerCase());
-}
+const DEFAULT_EVENTS_KEY = "events:1:::";
 
-function bumpPagination(
-  current: PaginationMeta | null,
-  delta: number
-): PaginationMeta | null {
-  if (!current) return current;
-  const total = Math.max(0, current.total + delta);
-  return {
-    ...current,
-    total,
-    totalPages: Math.max(1, Math.ceil(total / current.limit)),
-  };
-}
-
-const DEFAULT_EVENTS_KEY = "events:1::";
-
-export function useEvents(enabled = true) {
+export function useEvents() {
   const initial = eventsCache.get(DEFAULT_EVENTS_KEY);
   const [items, setItems] = useState<Event[]>(
     () => initial?.data.items ?? []
@@ -70,30 +40,41 @@ export function useEvents(enabled = true) {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [locationFilter, setLocationFilter] = useState("");
+  const [chapterFilter, setChapterFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(() => !initial);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(() => Boolean(initial));
   const [error, setError] = useState<string | null>(null);
 
   const editor = useEditorState<Event>();
   const mutation = useMutationState();
   const searchTerm = debouncedSearch.trim();
-  const hasActiveFilters = Boolean(searchTerm || locationFilter);
+  const hasActiveFilters = Boolean(
+    searchTerm || locationFilter || chapterFilter
+  );
   const filtersRef = useRef({
     searchTerm: "",
     locationFilter: "",
+    chapterFilter: "",
   });
 
-  useEffect(() => {
-    if (!enabled) return;
+  const invalidateLists = useCallback(() => {
+    eventsCache.clear();
+    clearEventsCatalogCache();
+    setReloadKey((key) => key + 1);
+  }, []);
 
+  useEffect(() => {
     let cancelled = false;
 
     const filtersChanged =
       filtersRef.current.searchTerm !== searchTerm ||
-      filtersRef.current.locationFilter !== locationFilter;
+      filtersRef.current.locationFilter !== locationFilter ||
+      filtersRef.current.chapterFilter !== chapterFilter;
 
     if (filtersChanged) {
-      filtersRef.current = { searchTerm, locationFilter };
+      filtersRef.current = { searchTerm, locationFilter, chapterFilter };
       if (page !== 1) {
         setPage(1);
         return;
@@ -101,12 +82,13 @@ export function useEvents(enabled = true) {
     }
 
     const pageToLoad = filtersChanged ? 1 : page;
-    const fetchKey = `events:${pageToLoad}:${searchTerm}:${locationFilter}`;
+    const fetchKey = `events:${pageToLoad}:${searchTerm}:${locationFilter}:${chapterFilter}`;
 
     const cached = eventsCache.get(fetchKey);
     if (cached) {
       setItems(cached.data.items);
       setPagination(cached.data.pagination);
+      setHasLoadedOnce(true);
       setLoading(false);
       return;
     }
@@ -120,10 +102,11 @@ export function useEvents(enabled = true) {
             eventService.list({
               search: searchTerm || undefined,
               locationId: locationFilter || undefined,
+              chapterId: chapterFilter || undefined,
               page: pageToLoad,
               limit: DEFAULT_LIMIT,
             }),
-          fetchKey
+          `${fetchKey}:r${reloadKey}`
         );
         if (cancelled) return;
         const payload = {
@@ -137,7 +120,10 @@ export function useEvents(enabled = true) {
         if (cancelled) return;
         setError(getErrorMessage(err, "Failed to load events"));
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setHasLoadedOnce(true);
+          setLoading(false);
+        }
       }
     }
 
@@ -145,7 +131,7 @@ export function useEvents(enabled = true) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, searchTerm, locationFilter, page]);
+  }, [searchTerm, locationFilter, chapterFilter, page, reloadKey]);
 
   const startEdit = (id: string) => {
     mutation.clearError();
@@ -160,19 +146,9 @@ export function useEvents(enabled = true) {
   const createEvent = async (data: CreateEventInput) => {
     await mutation.run(
       async () => {
-        const created = await eventService.create(data);
-
-        if (matchesFilters(created, searchTerm, locationFilter)) {
-          if (page === 1) {
-            setItems((prev) => [created, ...prev].slice(0, DEFAULT_LIMIT));
-          }
-          setPagination((prev) => bumpPagination(prev, 1));
-        } else {
-          setPagination((prev) => bumpPagination(prev, 1));
-        }
-
-        eventsCache.clear();
+        await eventService.create(data);
         editor.closeEditor();
+        invalidateLists();
       },
       "Failed to create event",
       { rethrow: true }
@@ -182,22 +158,9 @@ export function useEvents(enabled = true) {
   const updateEvent = async (id: string, data: UpdateEventInput) => {
     await mutation.run(
       async () => {
-        const updated = await eventService.update(id, data);
-        const visible = matchesFilters(updated, searchTerm, locationFilter);
-
-        setItems((prev) => {
-          const exists = prev.some((item) => item.id === id);
-          if (!visible) {
-            return prev.filter((item) => item.id !== id);
-          }
-          if (!exists) {
-            return [updated, ...prev].slice(0, DEFAULT_LIMIT);
-          }
-          return prev.map((item) => (item.id === id ? updated : item));
-        });
-
-        eventsCache.clear();
+        await eventService.update(id, data);
         editor.closeEditor();
+        invalidateLists();
       },
       "Failed to update event",
       { rethrow: true }
@@ -208,9 +171,7 @@ export function useEvents(enabled = true) {
     await mutation.run(async () => {
       await eventService.remove(id);
       editor.cancelDelete();
-      setItems((prev) => prev.filter((item) => item.id !== id));
-      setPagination((prev) => bumpPagination(prev, -1));
-      eventsCache.clear();
+      invalidateLists();
     }, "Failed to delete event");
   };
 
@@ -227,10 +188,15 @@ export function useEvents(enabled = true) {
     clearSearch: () => setSearchInput(""),
     locationFilter,
     setLocationFilter,
+    chapterFilter,
+    setChapterFilter,
     hasActiveFilters,
     page,
     setPage,
-    loading: enabled ? loading : false,
+    loading,
+    initialLoading: loading && !hasLoadedOnce,
+    isSearching:
+      searchInput.trim() !== searchTerm || (loading && hasLoadedOnce),
     saving: mutation.saving,
     error: error ?? mutation.error,
     editingItem: editor.editingItem,

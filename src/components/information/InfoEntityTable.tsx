@@ -9,6 +9,7 @@ export type InfoListItem = {
   imageUrl: string | null;
   description: string | null;
   updatedAt: string;
+  chapter?: { title: string } | null;
 };
 
 type InfoEntityTableProps = {
@@ -69,6 +70,11 @@ export function InfoEntityTable({
                 >
                   {item.name}
                 </p>
+                {item.chapter?.title ? (
+                  <p className="mt-0.5 truncate text-[11px] text-[var(--gold)] sm:text-xs">
+                    {item.chapter.title}
+                  </p>
+                ) : null}
                 {/* Mobile-only: replaces Description column */}
                 <p
                   className="mt-0.5 line-clamp-2 break-words text-[11px] leading-snug text-[var(--text-muted)] sm:text-xs md:hidden"

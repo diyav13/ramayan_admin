@@ -154,10 +154,6 @@ function paginateUsers(
   };
 }
 
-export function getDummyUserById(id: string): User | null {
-  return DUMMY_USERS.find((user) => user.id === id) ?? null;
-}
-
 export function isDummyUserId(id: string): boolean {
   return DUMMY_USERS.some((user) => user.id === id);
 }

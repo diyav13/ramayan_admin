@@ -6,8 +6,8 @@ import type { Event } from "@/types/event";
 
 export const eventColumns = [
   { label: "Event" },
-  { label: "Location", hideBelow: "md" as const, width: "9rem" },
-  { label: "People", hideBelow: "lg" as const, width: "14rem" },
+  { label: "Chapter", hideBelow: "md" as const, width: "9rem" },
+  { label: "Location", hideBelow: "lg" as const, width: "9rem" },
   { label: "Actions", align: "right" as const, width: "6.5rem" },
 ];
 
@@ -44,16 +44,13 @@ function EventThumb({ name, imageUrl }: { name: string; imageUrl: string | null 
   );
 }
 
-function peopleLabel(event: Event): string {
-  if (!event.characters?.length) return "—";
-  return event.characters.map((character) => character.name).join(", ");
-}
-
 function subtitle(event: Event): string {
+  const chapter = event.chapter?.title?.trim();
   const place = event.location?.name?.trim() || "No location";
+  const head = chapter ? `${chapter} · ${place}` : place;
   const plain = stripHtml(event.description);
-  if (!plain) return place;
-  return `${place} · ${plain}`;
+  if (!plain) return head;
+  return `${head} · ${plain}`;
 }
 
 type EventTableProps = {
@@ -99,22 +96,21 @@ export function EventTable({
                   {subtitle(item)}
                 </p>
                 <p className="mt-1 truncate text-[11px] text-[var(--text-muted)] md:hidden">
-                  {item.location?.name ?? "—"}
+                  {[item.chapter?.title, item.location?.name]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
                 </p>
               </div>
             </div>
           </td>
           <td className={`${eventCellPad} ${eventHideMd} overflow-hidden align-top`}>
             <p className="truncate text-xs text-[var(--text-muted)] sm:text-sm">
-              {item.location?.name ?? "—"}
+              {item.chapter?.title ?? "—"}
             </p>
           </td>
           <td className={`${eventCellPad} ${eventHideLg} overflow-hidden align-top`}>
-            <p
-              className="line-clamp-2 break-words text-xs text-[var(--text-muted)] sm:text-sm"
-              title={peopleLabel(item)}
-            >
-              {peopleLabel(item)}
+            <p className="truncate text-xs text-[var(--text-muted)] sm:text-sm">
+              {item.location?.name ?? "—"}
             </p>
           </td>
           <td className={`${eventActionsPad} align-top`}>

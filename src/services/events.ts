@@ -11,21 +11,20 @@ import type {
 } from "@/types/event";
 
 function toListQuery(params: EventListParams): string {
+  const all = params.all === true;
   return buildQuery({
     search: params.search,
     locationId: params.locationId,
     chapterId: params.chapterId,
     episodeId: params.episodeId,
-    page: params.page ?? DEFAULT_PAGE,
-    limit: params.limit ?? DEFAULT_LIMIT,
+    page: all ? undefined : (params.page ?? DEFAULT_PAGE),
+    limit: all ? undefined : (params.limit ?? DEFAULT_LIMIT),
   });
 }
 
 export const eventService = {
   list: (params: EventListParams = {}): Promise<PaginatedResult<Event>> =>
     api.list<Event>(`${paths.events.root}${toListQuery(params)}`),
-
-  getById: (id: string) => api.get<Event>(paths.events.byId(id)),
 
   create: (data: CreateEventInput) =>
     api.post<Event>(paths.events.root, data),

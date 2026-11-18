@@ -97,11 +97,6 @@ export const episodeService = {
       )
       .then(normalizeByChapter),
 
-  getById: (id: string) =>
-    api
-      .get<Episode>(paths.episodes.byId(id))
-      .then(normalizeEpisodeEntities),
-
   /** Single create call — include characterIds / locationIds / quizInstructionIds in the body. */
   create: (data: CreateEpisodeInput) =>
     api

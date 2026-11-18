@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEditorState } from "@/hooks/useEditorState";
 import { useMutationState } from "@/hooks/useMutationState";
@@ -15,6 +15,7 @@ import {
   DEFAULT_LIMIT,
   totalFromPagination,
 } from "@/lib/pagination";
+import { clearCharactersCatalogCache } from "@/lib/catalog/options";
 import { characterService } from "@/services/characters";
 import type { PaginatedResult, PaginationMeta } from "@/types/api";
 import type {
@@ -24,36 +25,13 @@ import type {
 } from "@/types/character";
 
 const fetchCharactersOnce = createInflightDedupe<PaginatedResult<Character>>();
-const charactersCache = createSessionCache<ListCachePayload<Character>>("characters");
-
-function matchesSearch(
-  character: Pick<Character, "name" | "title">,
-  search: string
-): boolean {
-  if (!search) return true;
-  const q = search.toLowerCase();
-  return (
-    character.name.toLowerCase().includes(q) ||
-    (character.title?.toLowerCase().includes(q) ?? false)
-  );
-}
-
-function bumpPagination(
-  current: PaginationMeta | null,
-  delta: number
-): PaginationMeta | null {
-  if (!current) return current;
-  const total = Math.max(0, current.total + delta);
-  return {
-    ...current,
-    total,
-    totalPages: Math.max(1, Math.ceil(total / current.limit)),
-  };
-}
+const charactersCache = createSessionCache<ListCachePayload<Character>>(
+  "characters"
+);
 
 const DEFAULT_CHARACTERS_KEY = "characters:1:";
 
-export function useCharacters(enabled = true) {
+export function useCharacters() {
   const initial = charactersCache.get(DEFAULT_CHARACTERS_KEY);
   const [items, setItems] = useState<Character[]>(
     () => initial?.data.items ?? []
@@ -64,7 +42,9 @@ export function useCharacters(enabled = true) {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput);
   const [page, setPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(() => !initial);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(() => Boolean(initial));
   const [error, setError] = useState<string | null>(null);
 
   const editor = useEditorState<Character>();
@@ -73,9 +53,13 @@ export function useCharacters(enabled = true) {
   const hasActiveFilters = Boolean(searchTerm);
   const filtersRef = useRef({ searchTerm: "" });
 
-  useEffect(() => {
-    if (!enabled) return;
+  const invalidateLists = useCallback(() => {
+    charactersCache.clear();
+    clearCharactersCatalogCache();
+    setReloadKey((key) => key + 1);
+  }, []);
 
+  useEffect(() => {
     let cancelled = false;
 
     const filtersChanged = filtersRef.current.searchTerm !== searchTerm;
@@ -94,6 +78,7 @@ export function useCharacters(enabled = true) {
     if (cached) {
       setItems(cached.data.items);
       setPagination(cached.data.pagination);
+      setHasLoadedOnce(true);
       setLoading(false);
       return;
     }
@@ -109,7 +94,7 @@ export function useCharacters(enabled = true) {
               page: pageToLoad,
               limit: DEFAULT_LIMIT,
             }),
-          fetchKey
+          `${fetchKey}:r${reloadKey}`
         );
         if (cancelled) return;
         const payload = {
@@ -123,7 +108,10 @@ export function useCharacters(enabled = true) {
         if (cancelled) return;
         setError(getErrorMessage(err, "Failed to load characters"));
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setHasLoadedOnce(true);
+          setLoading(false);
+        }
       }
     }
 
@@ -131,7 +119,7 @@ export function useCharacters(enabled = true) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, searchTerm, page]);
+  }, [searchTerm, page, reloadKey]);
 
   const startEdit = (id: string) => {
     mutation.clearError();
@@ -146,19 +134,9 @@ export function useCharacters(enabled = true) {
   const createCharacter = async (data: CreateCharacterInput) => {
     await mutation.run(
       async () => {
-        const created = await characterService.create(data);
-
-        if (matchesSearch(created, searchTerm)) {
-          if (page === 1) {
-            setItems((prev) => [created, ...prev].slice(0, DEFAULT_LIMIT));
-          }
-          setPagination((prev) => bumpPagination(prev, 1));
-        } else {
-          setPagination((prev) => bumpPagination(prev, 1));
-        }
-
-        charactersCache.clear();
+        await characterService.create(data);
         editor.closeEditor();
+        invalidateLists();
       },
       "Failed to create character",
       { rethrow: true }
@@ -168,22 +146,9 @@ export function useCharacters(enabled = true) {
   const updateCharacter = async (id: string, data: UpdateCharacterInput) => {
     await mutation.run(
       async () => {
-        const updated = await characterService.update(id, data);
-        const visible = matchesSearch(updated, searchTerm);
-
-        setItems((prev) => {
-          const exists = prev.some((item) => item.id === id);
-          if (!visible) {
-            return prev.filter((item) => item.id !== id);
-          }
-          if (!exists) {
-            return [updated, ...prev].slice(0, DEFAULT_LIMIT);
-          }
-          return prev.map((item) => (item.id === id ? updated : item));
-        });
-
-        charactersCache.clear();
+        await characterService.update(id, data);
         editor.closeEditor();
+        invalidateLists();
       },
       "Failed to update character",
       { rethrow: true }
@@ -194,9 +159,7 @@ export function useCharacters(enabled = true) {
     await mutation.run(async () => {
       await characterService.remove(id);
       editor.cancelDelete();
-      setItems((prev) => prev.filter((item) => item.id !== id));
-      setPagination((prev) => bumpPagination(prev, -1));
-      charactersCache.clear();
+      invalidateLists();
     }, "Failed to delete character");
   };
 
@@ -214,7 +177,10 @@ export function useCharacters(enabled = true) {
     hasActiveFilters,
     page,
     setPage,
-    loading: enabled ? loading : false,
+    loading,
+    initialLoading: loading && !hasLoadedOnce,
+    isSearching:
+      searchInput.trim() !== searchTerm || (loading && hasLoadedOnce),
     saving: mutation.saving,
     error: error ?? mutation.error,
     editingItem: editor.editingItem,

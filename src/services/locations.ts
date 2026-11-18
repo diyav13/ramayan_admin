@@ -11,11 +11,13 @@ import type {
 } from "@/types/location";
 
 function toListQuery(params: LocationListParams): string {
+  const all = params.all === true;
   return buildQuery({
     search: params.search,
     episodeId: params.episodeId,
-    page: params.page ?? DEFAULT_PAGE,
-    limit: params.limit ?? DEFAULT_LIMIT,
+    chapterId: params.chapterId,
+    page: all ? undefined : (params.page ?? DEFAULT_PAGE),
+    limit: all ? undefined : (params.limit ?? DEFAULT_LIMIT),
   });
 }
 
@@ -24,8 +26,6 @@ export const locationService = {
     params: LocationListParams = {}
   ): Promise<PaginatedResult<Location>> =>
     api.list<Location>(`${paths.locations.root}${toListQuery(params)}`),
-
-  getById: (id: string) => api.get<Location>(paths.locations.byId(id)),
 
   create: (data: CreateLocationInput) =>
     api.post<Location>(paths.locations.root, data),

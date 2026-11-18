@@ -4,7 +4,6 @@ import { buildQuery } from "@/lib/api/query";
 import { DEFAULT_LIMIT, DEFAULT_PAGE } from "@/lib/pagination";
 import {
   combineUsersForDisplay,
-  getDummyUserById,
   getDummyUserList,
   isDummyUserId,
 } from "@/lib/users-dummy";
@@ -31,16 +30,6 @@ export const userService = {
     } catch {
       return getDummyUserList(params);
     }
-  },
-
-  async getById(id: string): Promise<User> {
-    if (isDummyUserId(id)) {
-      const user = getDummyUserById(id);
-      if (!user) throw new Error("User not found");
-      return user;
-    }
-
-    return api.get<User>(paths.users.byId(id));
   },
 
   update: (id: string, data: UpdateUserInput) => {

@@ -12,7 +12,13 @@ type InfoImageFieldProps = {
   /** Portrait crop for characters; landscape for locations. */
   variant?: "portrait" | "landscape";
   /** Which S3 folder to upload into. */
-  uploadType: "character" | "location" | "event" | "quizInstruction";
+  uploadType:
+    | "character"
+    | "location"
+    | "event"
+    | "quizInstruction"
+    | "mapPin"
+    | "mapDetail";
   /** Pass when editing so uploads land under that entity folder. */
   entityId?: string;
   onUploadingChange?: (uploading: boolean) => void;

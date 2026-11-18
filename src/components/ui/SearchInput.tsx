@@ -5,17 +5,21 @@ import { controlClass } from "./Field";
 
 type SearchInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   onClear?: () => void;
+  /** Shows a spinner at the trailing end while a search request is in flight. */
+  loading?: boolean;
 };
 
 export function SearchInput({
   className = "",
   value,
   onClear,
+  loading = false,
   placeholder = "Search…",
   disabled,
   ...props
 }: SearchInputProps) {
   const hasValue = String(value ?? "").length > 0;
+  const showClear = hasValue && onClear && !disabled && !loading;
 
   return (
     <div className={`relative min-w-0 flex-1 ${className}`}>
@@ -30,7 +34,16 @@ export function SearchInput({
         className={`${controlClass} h-10 w-full py-2 pl-10 pr-9 text-sm disabled:cursor-not-allowed disabled:opacity-60 [&::-webkit-search-cancel-button]:hidden`}
         {...props}
       />
-      {hasValue && onClear && !disabled && (
+      {loading ? (
+        <span
+          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+          aria-label="Searching"
+          role="status"
+        >
+          <SpinnerIcon />
+        </span>
+      ) : null}
+      {showClear ? (
         <button
           type="button"
           onClick={onClear}
@@ -39,7 +52,7 @@ export function SearchInput({
         >
           <ClearIcon />
         </button>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -76,6 +89,34 @@ function ClearIcon() {
     >
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+function SpinnerIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="animate-spin"
+      aria-hidden
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeOpacity="0.25"
+        strokeWidth="3"
+      />
+      <path
+        d="M21 12a9 9 0 0 0-9-9"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

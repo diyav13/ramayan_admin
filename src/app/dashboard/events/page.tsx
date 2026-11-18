@@ -17,11 +17,14 @@ import {
 import { ListState } from "@/components/ListState";
 import { PageHeader } from "@/components/PageHeader";
 import { Pagination } from "@/components/Pagination";
+import { useChapters } from "@/hooks/useChapters";
 import { useEvents } from "@/hooks/useEvents";
 import { getErrorMessage } from "@/lib/api/errors";
+import {
+  loadCharactersCatalog,
+  loadLocationsCatalog,
+} from "@/lib/catalog/options";
 import { pluralize } from "@/lib/utils";
-import { characterService } from "@/services/characters";
-import { locationService } from "@/services/locations";
 import type {
   CreateEventInput,
   Event,
@@ -63,10 +66,10 @@ function EventsTableSkeleton() {
               </div>
             </td>
             <td className={`${eventCellPad} ${eventHideMd}`}>
-              <SkeletonBar className="h-3.5 w-16" />
+              <SkeletonBar className="h-3.5 w-20" />
             </td>
             <td className={`${eventCellPad} ${eventHideLg}`}>
-              <SkeletonBar className="h-3.5 w-28" />
+              <SkeletonBar className="h-3.5 w-24" />
             </td>
             <td className={eventActionsPad}>
               <div className="flex justify-end gap-1 sm:gap-1.5">
@@ -93,10 +96,14 @@ export default function EventsPage() {
     clearSearch,
     locationFilter,
     setLocationFilter,
+    chapterFilter,
+    setChapterFilter,
     hasActiveFilters,
     page,
     setPage,
     loading,
+    initialLoading,
+    isSearching,
     saving,
     error,
     editingItem,
@@ -113,38 +120,67 @@ export default function EventsPage() {
     cancelDelete,
   } = useEvents();
 
+  const { items: chapters } = useChapters();
   const [locations, setLocations] = useState<Location[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
+  // Locations are needed for list filters; characters only when the form is open.
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCatalogs() {
+    async function loadLocations() {
       try {
-        const [locationResult, characterResult] = await Promise.all([
-          locationService.list({ page: 1, limit: 100 }),
-          characterService.list({ page: 1, limit: 100 }),
-        ]);
-
+        const data = await loadLocationsCatalog();
         if (cancelled) return;
-
-        setLocations(locationResult.data);
-        setCharacters(characterResult.data);
+        setLocations(data);
         setCatalogError(null);
       } catch (err) {
         if (cancelled) return;
-        setCatalogError(
-          getErrorMessage(err, "Failed to load locations or characters")
-        );
+        setCatalogError(getErrorMessage(err, "Failed to load locations"));
       }
     }
 
-    void loadCatalogs();
+    void loadLocations();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    let cancelled = false;
+
+    async function loadCharacters() {
+      try {
+        const data = await loadCharactersCatalog();
+        if (cancelled) return;
+        setCharacters(data);
+        setCatalogError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setCatalogError(getErrorMessage(err, "Failed to load characters"));
+      }
+    }
+
+    void loadCharacters();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing]);
+
+  const chapterOptions = useMemo(
+    () =>
+      [...chapters]
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+        .map((chapter) => ({
+          value: chapter.id,
+          label: chapter.title,
+          accentColor: chapter.accentColor,
+        })),
+    [chapters]
+  );
 
   const locationOptions = useMemo(
     () =>
@@ -154,7 +190,14 @@ export default function EventsPage() {
         )
         .map((location) => ({
           value: location.id,
-          label: location.name,
+          label: location.chapter?.title
+            ? `${location.name} · ${location.chapter.title}`
+            : location.name,
+          chapterId: location.chapterId,
+          characterIds:
+            location.characterIds ??
+            location.characters?.map((character) => character.id) ??
+            [],
         })),
     [locations]
   );
@@ -190,8 +233,8 @@ export default function EventsPage() {
         title={creating ? "Add Event" : event?.name ?? "Event"}
         subtitle={
           creating
-            ? "Image, HTML story, one location, and the people involved"
-            : "Update image, HTML story, location, or people"
+            ? "Basics → story → where & who — then Save"
+            : "Update basics, story, chapter, location, or people"
         }
         onBack={closeEditor}
       >
@@ -200,6 +243,7 @@ export default function EventsPage() {
         )}
         <EventForm
           event={event}
+          chapterOptions={chapterOptions}
           locationOptions={locationOptions}
           characterOptions={characterOptions}
           saving={saving}
@@ -211,7 +255,8 @@ export default function EventsPage() {
     );
   }
 
-  const subtitle = loading
+  const showSkeleton = initialLoading;
+  const subtitle = showSkeleton
     ? "Loading events…"
     : `${pluralize(totalCount, "event")} total`;
 
@@ -222,28 +267,37 @@ export default function EventsPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-3 sm:space-y-5">
       <PageHeader
-        title="Event Management"
+        title="Events"
         subtitle={subtitle}
         actionLabel="Add Event"
         onAction={startCreate}
-        actionDisabled={loading}
+        actionDisabled={showSkeleton}
       />
+
+      <p className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs leading-relaxed text-[var(--text-muted)] sm:text-[13px]">
+        Each event needs a <span className="text-white/80">chapter</span> and{" "}
+        <span className="text-white/80">location</span>. Create those under Chapters
+        and Locations first if they are missing.
+      </p>
 
       <EventFiltersBar
         search={searchInput}
         onSearchChange={setSearchInput}
         onSearchClear={clearSearch}
+        chapterId={chapterFilter}
+        onChapterChange={setChapterFilter}
+        chapterOptions={chapterOptions}
         locationId={locationFilter}
         onLocationChange={setLocationFilter}
         locationOptions={locationOptions}
-        disabled={loading}
+        loading={isSearching}
       />
 
       {(error || catalogError) && (
         <ErrorBanner message={error ?? catalogError ?? ""} />
       )}
 
-      {loading ? (
+      {showSkeleton ? (
         <EventsTableSkeleton />
       ) : items.length === 0 ? (
         <ListState
@@ -251,7 +305,7 @@ export default function EventsPage() {
           hint={
             hasActiveFilters
               ? "Try adjusting your search or location filter."
-              : "Create your first key event for the Explore timeline."
+              : "Create your first event to get started."
           }
         />
       ) : (

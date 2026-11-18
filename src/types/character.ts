@@ -4,12 +4,14 @@ export type CharacterLocationRef = {
   imageUrl: string | null;
 };
 
-export type CharacterKeyEventRef = {
+export type CharacterEventRef = {
   id: string;
   name: string;
   imageUrl: string | null;
   location?: { id: string; name: string } | null;
 };
+
+export type CharacterKeyEventRef = CharacterEventRef;
 
 export interface Character {
   id: string;
@@ -27,6 +29,9 @@ export interface Character {
   keyEvent: CharacterKeyEventRef | null;
   locations: CharacterLocationRef[];
   locationIds: string[];
+  /** Events linked via Event.characterIds (read-only on Character form). */
+  events?: CharacterEventRef[];
+  eventIds?: string[];
   episodeCount?: number;
   eventCount?: number;
   createdAt: string;
@@ -35,13 +40,15 @@ export interface Character {
 
 export interface CreateCharacterInput {
   name: string;
-  title?: string;
-  lineage?: string;
-  description?: string;
-  relationshipsBlurb?: string;
-  /** Set on create; send `null` on update to clear. */
+  title: string;
+  lineage: string;
+  description: string;
+  relationshipsBlurb: string;
+  /** Required on create; send `null` on update to clear. */
   imageUrl?: string | null;
+  /** Optional journey places. */
   locationIds?: string[];
+  /** Optional key event. */
   keyEventId?: string | null;
 }
 
@@ -55,8 +62,12 @@ export type UpdateCharacterInput = Partial<
 };
 
 export interface CharacterListParams {
+  /** When true, omit page/limit so BE returns the full filtered set. */
+  all?: boolean;
   search?: string;
   episodeId?: string;
+  /** Characters linked to this place (or via events there). */
+  locationId?: string;
   page?: number;
   limit?: number;
 }

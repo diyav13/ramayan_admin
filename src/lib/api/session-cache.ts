@@ -15,10 +15,7 @@ export type SessionCacheEntry<T> = {
 export type SessionCache<T> = {
   get: (key?: string) => SessionCacheEntry<T> | undefined;
   set: (data: T, key?: string) => void;
-  has: (key?: string) => boolean;
-  delete: (key?: string) => void;
   clear: () => void;
-  clearPrefix: (prefix: string) => void;
 };
 
 export type ListCachePayload<T> = {
@@ -62,19 +59,8 @@ export function createSessionCache<T>(namespace: string): SessionCache<T> {
     set(data, key = "_") {
       store.set(key, { data, fetchedAt: Date.now() });
     },
-    has(key = "_") {
-      return store.has(key);
-    },
-    delete(key = "_") {
-      store.delete(key);
-    },
     clear() {
       store.clear();
-    },
-    clearPrefix(prefix) {
-      for (const key of [...store.keys()]) {
-        if (key.startsWith(prefix)) store.delete(key);
-      }
     },
   };
 }

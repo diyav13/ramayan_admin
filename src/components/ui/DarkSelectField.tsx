@@ -3,11 +3,13 @@
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
 import { Field, controlClass } from "@/components/ui/Field";
+import { stopNestedScroll } from "@/lib/utils";
 
 export type DropdownOption = {
   value: string;
@@ -24,6 +26,14 @@ type DarkSelectFieldProps = {
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
+  /**
+   * `overlay` — floating menu (default).
+   * `inline` — expands in the form flow (better inside scroll panels).
+   */
+  menuMode?: "overlay" | "inline";
+  /** Show a search box when there are many options (default: auto for 8+). */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 };
 
 /** Form select with a dark dropdown panel and white option text. */
@@ -37,15 +47,30 @@ export function DarkSelectField({
   required = false,
   disabled = false,
   placeholder = "Select…",
+  menuMode = "overlay",
+  searchable,
+  searchPlaceholder = "Search…",
 }: DarkSelectFieldProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const isControlled = value !== undefined;
   const [internalValue, setInternalValue] = useState(defaultValue);
   const currentValue = isControlled ? value : internalValue;
+  const inline = menuMode === "inline";
+  const showSearch = searchable ?? options.length >= 8;
 
   const selected = options.find((option) => option.value === currentValue);
+
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return options;
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query)
+    );
+  }, [options, search]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,12 +78,14 @@ export function DarkSelectField({
     function handlePointerDown(event: MouseEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false);
+        setSearch("");
       }
     }
 
     function handleEscape(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
+        setSearch("");
       }
     }
 
@@ -70,12 +97,22 @@ export function DarkSelectField({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    rootRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (showSearch) {
+      const id = window.setTimeout(() => searchRef.current?.focus(), 40);
+      return () => window.clearTimeout(id);
+    }
+  }, [open, showSearch]);
+
   function selectOption(optionValue: string) {
     if (!isControlled) {
       setInternalValue(optionValue);
     }
     onChange?.(optionValue);
     setOpen(false);
+    setSearch("");
   }
 
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
@@ -88,7 +125,7 @@ export function DarkSelectField({
 
   return (
     <Field label={label} htmlFor={listId}>
-      <div ref={rootRef} className="relative">
+      <div ref={rootRef} className={inline ? "" : "relative"}>
         {name ? (
           <input
             type="hidden"
@@ -105,7 +142,9 @@ export function DarkSelectField({
           disabled={disabled}
           onClick={() => !disabled && setOpen((prev) => !prev)}
           onKeyDown={handleTriggerKeyDown}
-          className={`${controlClass} flex h-14 w-full items-center justify-between gap-2 px-4 pr-9 text-left disabled:cursor-not-allowed disabled:opacity-60`}
+          className={`${controlClass} relative flex h-12 w-full items-center justify-between gap-2 px-4 pr-9 text-left disabled:cursor-not-allowed disabled:opacity-60 ${
+            open ? "ring-1 ring-[var(--gold)]/50" : ""
+          }`}
         >
           <span
             className={`min-w-0 flex-1 truncate ${
@@ -123,26 +162,53 @@ export function DarkSelectField({
           <div
             role="listbox"
             aria-label={label}
-            className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-dark)] shadow-xl shadow-black/40"
+            className={
+              inline
+                ? "mt-2 overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-dark)]"
+                : "absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-white/10 bg-[var(--surface-dark)] shadow-xl shadow-black/40"
+            }
           >
-            <div className="max-h-52 overflow-y-auto p-1">
-              {options.map((option) => {
-                const isSelected = option.value === currentValue;
-                return (
-                  <button
-                    key={option.value || "__empty__"}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => selectOption(option.value)}
-                    className={`flex w-full truncate bg-[var(--surface-dark)] px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 ${
-                      isSelected ? "bg-white/10 font-medium" : ""
-                    }`}
-                  >
-                    <span className="truncate">{option.label}</span>
-                  </button>
-                );
-              })}
+            {showSearch ? (
+              <div className="border-b border-white/5 p-2">
+                <input
+                  ref={searchRef}
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="h-10 w-full rounded bg-[var(--surface-alt)] px-3 text-sm text-white outline-none placeholder:text-[var(--text-muted)] focus:ring-1 focus:ring-[var(--gold)]"
+                />
+              </div>
+            ) : null}
+            <div
+              className={`${inline ? "max-h-56" : "max-h-52"} overflow-y-auto overscroll-contain p-1`}
+              onWheel={stopNestedScroll}
+            >
+              {filteredOptions.length === 0 ? (
+                <p className="px-3 py-4 text-sm text-[var(--text-muted)]">
+                  No matches
+                </p>
+              ) : (
+                filteredOptions.map((option) => {
+                  const isSelected = option.value === currentValue;
+                  return (
+                    <button
+                      key={option.value || "__empty__"}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => selectOption(option.value)}
+                      className={`flex w-full bg-[var(--surface-dark)] px-3 py-3 text-left text-sm text-white transition hover:bg-white/10 ${
+                        isSelected ? "bg-white/10 font-medium" : ""
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 break-words">
+                        {option.label}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         ) : null}

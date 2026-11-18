@@ -23,8 +23,6 @@ export const avatarService = {
   list: (params: AvatarListParams = {}): Promise<PaginatedResult<Avatar>> =>
     api.list<Avatar>(`${paths.avatars.root}${toListQuery(params)}`),
 
-  getById: (id: string) => api.get<Avatar>(paths.avatars.byId(id)),
-
   create: (data: CreateAvatarInput) =>
     api.post<Avatar>(paths.avatars.root, data),
 

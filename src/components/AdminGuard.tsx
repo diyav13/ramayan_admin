@@ -24,5 +24,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+  );
 }
